@@ -20,23 +20,29 @@
 #include "MapView.h"
 
 #include "TrenchBroom.h"
-
-#include <cassert>
+#include "View/MapViewContainer.h"
 
 namespace TrenchBroom {
     namespace View {
-        MapView::~MapView() {}
+        MapView::MapView() :
+        m_container(nullptr) {}
+
+        MapView::~MapView() = default;
+
+        void MapView::setContainer(MapViewContainer* container) {
+            m_container = container;
+        }
+
+        void MapView::installActivationTracker(MapViewActivationTracker& activationTracker) {
+            doInstallActivationTracker(activationTracker);
+        }
 
         bool MapView::isCurrent() const {
             return doGetIsCurrent();
         }
 
-        void MapView::setToolBoxDropTarget() {
-            doSetToolBoxDropTarget();
-        }
-
-        void MapView::clearDropTarget() {
-            doClearDropTarget();
+        MapViewBase* MapView::firstMapViewBase() {
+            return doGetFirstMapViewBase();
         }
 
         bool MapView::canSelectTall() {
@@ -45,15 +51,6 @@ namespace TrenchBroom {
 
         void MapView::selectTall() {
             doSelectTall();
-        }
-
-        bool MapView::canFlipObjects() const {
-            return doCanFlipObjects();
-        }
-
-        void MapView::flipObjects(const vm::direction direction) {
-            assert(canFlipObjects());
-            doFlipObjects(direction);
         }
 
         vm::vec3 MapView::pasteObjectsDelta(const vm::bbox3& bounds, const vm::bbox3& referenceBounds) const {
@@ -74,6 +71,16 @@ namespace TrenchBroom {
 
         bool MapView::cancelMouseDrag() {
             return doCancelMouseDrag();
+        }
+
+        void MapView::cycleMapView() {
+            if (m_container != nullptr) {
+                m_container->cycleChildMapView(this);
+            }
+        }
+
+        void MapView::refreshViews() {
+            doRefreshViews();
         }
     }
 }

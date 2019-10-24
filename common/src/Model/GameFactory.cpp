@@ -21,7 +21,6 @@
 
 #include "CollectionUtils.h"
 #include "PreferenceManager.h"
-#include "Preferences.h"
 #include "IO/CompilationConfigParser.h"
 #include "IO/CompilationConfigWriter.h"
 #include "IO/DiskFileSystem.h"
@@ -57,6 +56,12 @@ namespace TrenchBroom {
         void GameFactory::initialize() {
             initializeFileSystem();
             loadGameConfigs();
+        }
+
+        void GameFactory::saveConfigs(const String& gameName) {
+            const auto& config = gameConfig(gameName);
+            writeCompilationConfig(config);
+            writeGameEngineConfig(config);
         }
 
         const StringList& GameFactory::gameList() const {
@@ -145,11 +150,26 @@ namespace TrenchBroom {
         GameFactory::GameFactory() = default;
 
         void GameFactory::initializeFileSystem() {
-            const IO::Path resourceGameDir = IO::SystemPaths::resourceDirectory() + IO::Path("games");
+            // Gather the search paths we're going to use.
+            // The rest of this function will be chaining together TB filesystem objects for these search paths.
             const IO::Path userGameDir = IO::SystemPaths::userDataDirectory() + IO::Path("games");
-            if (IO::Disk::directoryExists(resourceGameDir)) {
-                auto resourceFS = std::make_shared<IO::DiskFileSystem>(resourceGameDir);
-                m_configFS = std::make_unique<IO::WritableDiskFileSystem>(std::move(resourceFS), userGameDir, true);
+            const std::vector<IO::Path> gameConfigSearchDirs = IO::SystemPaths::findResourceDirectories(IO::Path("games"));
+
+            // All of the current search paths from highest to lowest priority
+            std::unique_ptr<IO::DiskFileSystem> chain;
+            for (auto it = gameConfigSearchDirs.rbegin(); it != gameConfigSearchDirs.rend(); ++it) {
+                const IO::Path path = *it;
+
+                if (chain != nullptr) {
+                    chain = std::make_unique<IO::DiskFileSystem>(std::move(chain), path, false);
+                } else {
+                    chain = std::make_unique<IO::DiskFileSystem>(path, false);
+                }
+            }
+
+            // This is where we write configs             
+            if (chain != nullptr) {
+                m_configFS = std::make_unique<IO::WritableDiskFileSystem>(std::move(chain), userGameDir, true);
             } else {
                 m_configFS = std::make_unique<IO::WritableDiskFileSystem>(userGameDir, true);
             }
@@ -161,7 +181,7 @@ namespace TrenchBroom {
             const auto configFiles = m_configFS->findItemsRecursively(IO::Path(""), IO::FileNameMatcher("GameConfig.cfg"));
             for (const auto& configFilePath : configFiles) {
                 try {
-                    loadGameConfig(configFilePath);
+                loadGameConfig(configFilePath);
                 } catch (const std::exception& e) {
                     StringStream str;
                     str << "Could not load game configuration file " << configFilePath << ": " << e.what();

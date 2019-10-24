@@ -30,31 +30,28 @@
 #include "View/BorderLine.h"
 #include "View/LayerListBox.h"
 #include "View/MapDocument.h"
-#include "View/ViewConstants.h"
 #include "View/wxUtils.h"
 
-#include <wx/bmpbuttn.h>
-#include <wx/menu.h>
-#include <wx/msgdlg.h>
-#include <wx/settings.h>
-#include <wx/sizer.h>
-#include <wx/textdlg.h>
+#include <QInputDialog>
+#include <QMenu>
+#include <QVBoxLayout>
+#include <QMessageBox>
+#include <QAbstractButton>
 
 #include <set>
 
 namespace TrenchBroom {
     namespace View {
-        LayerEditor::LayerEditor(wxWindow* parent, MapDocumentWPtr document) :
-        wxPanel(parent),
+        LayerEditor::LayerEditor(MapDocumentWPtr document, QWidget *parent) :
+        QWidget(parent),
         m_document(document),
         m_layerList(nullptr) {
             createGui();
+
+            updateButtons();
         }
 
-        void LayerEditor::OnSetCurrentLayer(LayerCommand& event) {
-            if (IsBeingDeleted()) return;
-
-            auto* layer = event.layer();
+        void LayerEditor::onSetCurrentLayer(Model::Layer* layer) {
             auto document = lock(m_document);
             if (layer->locked()) {
                 document->resetLock(Model::NodeList(1, layer));
@@ -62,62 +59,49 @@ namespace TrenchBroom {
             if (layer->hidden()) {
                 document->resetVisibility(Model::NodeList(1, layer));
             }
-            document->setCurrentLayer(event.layer());
+            document->setCurrentLayer(layer);
+
+            updateButtons();
         }
 
-        void LayerEditor::OnLayerRightClick(LayerCommand& event) {
-            if (IsBeingDeleted()) return;
+        void LayerEditor::onLayerRightClick(Model::Layer* layer) {
+            QMenu popupMenu;
+            QAction* moveSelectionToLayerAction = popupMenu.addAction(tr("Move selection to layer"), this, &LayerEditor::onMoveSelectionToLayer);
+            popupMenu.addAction(tr("Select all in layer"), this, &LayerEditor::onSelectAllInLayer);
+            popupMenu.addSeparator();
+            QAction* toggleLayerVisibleAction = popupMenu.addAction(layer->hidden() ? tr("Show layer") : tr("Hide layer"), this, &LayerEditor::onToggleLayerVisibleFromMenu);
+            QAction* toggleLayerLockedAction = popupMenu.addAction(layer->locked() ? tr("Unlock layer") : tr("Lock layer"), this, &LayerEditor::onToggleLayerLockedFromMenu);
+            popupMenu.addSeparator();
+            QAction* removeLayerAction = popupMenu.addAction(tr("Remove layer"), this, &LayerEditor::onRemoveLayer);
 
-            const auto* layer = event.layer();
+            moveSelectionToLayerAction->setEnabled(canMoveSelectionToLayer());
+            toggleLayerVisibleAction->setEnabled(canToggleLayerVisible());
+            toggleLayerLockedAction->setEnabled(canToggleLayerLocked());
+            removeLayerAction->setEnabled(canRemoveLayer());
 
-            wxMenu popupMenu;
-            popupMenu.Append(MoveSelectionToLayerCommandId, "Move selection to layer");
-            popupMenu.Append(SelectAllInLayerCommandId, "Select all in layer");
-            popupMenu.AppendSeparator();
-            popupMenu.Append(ToggleLayerVisibleCommandId, layer->hidden() ? "Show layer" : "Hide layer");
-            popupMenu.Append(ToggleLayerLockedCommandId, layer->locked() ? "Unlock layer" : "Lock layer");
-            popupMenu.AppendSeparator();
-            popupMenu.Append(RemoveLayerCommandId, "Remove layer");
-
-            popupMenu.Bind(wxEVT_MENU, &LayerEditor::OnMoveSelectionToLayer, this, MoveSelectionToLayerCommandId);
-            popupMenu.Bind(wxEVT_UPDATE_UI, &LayerEditor::OnUpdateMoveSelectionToLayerUI, this, MoveSelectionToLayerCommandId);
-            popupMenu.Bind(wxEVT_MENU, &LayerEditor::OnSelectAllInLayer, this, SelectAllInLayerCommandId);
-            popupMenu.Bind(wxEVT_MENU, &LayerEditor::OnToggleLayerVisibleFromMenu, this, ToggleLayerVisibleCommandId);
-            popupMenu.Bind(wxEVT_UPDATE_UI, &LayerEditor::OnUpdateToggleLayerVisibleUI, this, ToggleLayerVisibleCommandId);
-            popupMenu.Bind(wxEVT_MENU, &LayerEditor::OnToggleLayerLockedFromMenu, this, ToggleLayerLockedCommandId);
-            popupMenu.Bind(wxEVT_UPDATE_UI, &LayerEditor::OnUpdateToggleLayerLockedUI, this, ToggleLayerLockedCommandId);
-            popupMenu.Bind(wxEVT_MENU, &LayerEditor::OnRemoveLayer, this, RemoveLayerCommandId);
-            popupMenu.Bind(wxEVT_UPDATE_UI, &LayerEditor::OnUpdateRemoveLayerUI, this, RemoveLayerCommandId);
-
-            PopupMenu(&popupMenu);
+            popupMenu.exec(QCursor::pos());
         }
 
-        void LayerEditor::OnToggleLayerVisibleFromMenu(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
+        void LayerEditor::onToggleLayerVisibleFromMenu() {
             toggleLayerVisible(m_layerList->selectedLayer());
         }
 
-        void LayerEditor::OnToggleLayerVisibleFromList(LayerCommand& event) {
-            if (IsBeingDeleted()) return;
-
-            toggleLayerVisible(event.layer());
+        void LayerEditor::onToggleLayerVisibleFromList(Model::Layer* layer) {
+            toggleLayerVisible(layer);
         }
 
-        void LayerEditor::OnUpdateToggleLayerVisibleUI(wxUpdateUIEvent& event) {
+        bool LayerEditor::canToggleLayerVisible() const {
             auto* layer = m_layerList->selectedLayer();
             if (layer == nullptr) {
-                event.Enable(false);
-                return;
+                return false;
             }
 
             auto document = lock(m_document);
             if (!layer->hidden() && layer == document->currentLayer()) {
-                event.Enable(false);
-                return;
+                return false;
             }
 
-            event.Enable(true);
+            return true;
         }
 
         void LayerEditor::toggleLayerVisible(Model::Layer* layer) {
@@ -130,32 +114,26 @@ namespace TrenchBroom {
             }
         }
 
-        void LayerEditor::OnToggleLayerLockedFromMenu(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
+        void LayerEditor::onToggleLayerLockedFromMenu() {
             toggleLayerLocked(m_layerList->selectedLayer());
         }
 
-        void LayerEditor::OnToggleLayerLockedFromList(LayerCommand& event) {
-            if (IsBeingDeleted()) return;
-
-            toggleLayerLocked(event.layer());
+        void LayerEditor::onToggleLayerLockedFromList(Model::Layer* layer) {
+            toggleLayerLocked(layer);
         }
 
-        void LayerEditor::OnUpdateToggleLayerLockedUI(wxUpdateUIEvent& event) {
+        bool LayerEditor::canToggleLayerLocked() const {
             auto* layer = m_layerList->selectedLayer();
             if (layer == nullptr) {
-                event.Enable(false);
-                return;
+                return false;
             }
 
             auto document = lock(m_document);
             if (!layer->locked() && layer == document->currentLayer()) {
-                event.Enable(false);
-                return;
+                return false;
             }
 
-            event.Enable(true);
+            return true;
         }
 
         void LayerEditor::toggleLayerLocked(Model::Layer* layer) {
@@ -222,9 +200,7 @@ namespace TrenchBroom {
             }
         };
 
-        void LayerEditor::OnMoveSelectionToLayer(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
+        void LayerEditor::onMoveSelectionToLayer() {
             auto* layer = m_layerList->selectedLayer();
             ensure(layer != nullptr, "layer is null");
 
@@ -233,44 +209,36 @@ namespace TrenchBroom {
             moveSelectedNodesToLayer(document, layer);
         }
 
-        void LayerEditor::OnUpdateMoveSelectionToLayerUI(wxUpdateUIEvent& event) {
-            if (IsBeingDeleted()) return;
-
+        bool LayerEditor::canMoveSelectionToLayer() const {
             const auto* layer = m_layerList->selectedLayer();
             if (layer == nullptr) {
-                event.Enable(false);
-                return;
+                return false;
             }
 
             auto document = lock(m_document);
             const auto& nodes = document->selectedNodes().nodes();
             if (nodes.empty()) {
-                event.Enable(false);
-                return;
+                return false;
             }
 
             for (auto* node : nodes) {
                 auto* nodeGroup = Model::findGroup(node);
                 if (nodeGroup != nullptr) {
-                    event.Enable(false);
-                    return;
+                    return false;
                 }
             }
 
             for (auto* node : nodes) {
                 auto* nodeLayer = Model::findLayer(node);
                 if (nodeLayer != layer) {
-                    event.Enable(true);
-                    return;
+                    return true;
                 }
             }
 
-            event.Enable(false);
+            return true;
         }
 
-        void LayerEditor::OnSelectAllInLayer(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
+        void LayerEditor::onSelectAllInLayer() {
             auto* layer = m_layerList->selectedLayer();
             ensure(layer != nullptr, "layer is null");
 
@@ -284,9 +252,7 @@ namespace TrenchBroom {
             document->select(nodes);
         }
 
-        void LayerEditor::OnAddLayer(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
+        void LayerEditor::onAddLayer() {
             const String name = queryLayerName();
             if (!name.empty()) {
                 auto document = lock(m_document);
@@ -302,19 +268,19 @@ namespace TrenchBroom {
 
         String LayerEditor::queryLayerName() {
             while (true) {
-                wxTextEntryDialog dialog(this, "Enter a name", "Layer Name", "Unnamed");
-                dialog.CentreOnParent();
-                if (dialog.ShowModal() != wxID_OK) {
+                bool ok = false;
+                const String name = QInputDialog::getText(this, "Enter a name", "Layer Name", QLineEdit::Normal, "Unnamed", &ok).toStdString();
+
+                if (!ok) {
                     return "";
                 }
 
-                const String name = dialog.GetValue().ToStdString();
                 if (StringUtils::isBlank(name)) {
-                    if (wxMessageBox("Layer names cannot be blank.", "Error", wxOK | wxCANCEL | wxCENTRE, this) != wxOK) {
+                    if (QMessageBox::warning(this, "Error", "Layer names cannot be blank.", QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok) != QMessageBox::Ok) {
                         return "";
                     }
                 } else if (StringUtils::containsCaseInsensitive(name, "\"")) {
-                    if (wxMessageBox("Layer names cannot contain double quotes.", "Error", wxOK | wxCANCEL | wxCENTRE, this) != wxOK) {
+                    if (QMessageBox::warning(this, "Error", "Layer names cannot contain double quotes.", QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Ok) != QMessageBox::Ok) {
                         return "";
                     }
                 } else {
@@ -323,9 +289,7 @@ namespace TrenchBroom {
             }
         }
 
-        void LayerEditor::OnRemoveLayer(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
+        void LayerEditor::onRemoveLayer() {
             auto* layer = m_layerList->selectedLayer();
             ensure(layer != nullptr, "layer is null");
 
@@ -343,29 +307,23 @@ namespace TrenchBroom {
             document->removeNode(layer);
         }
 
-        void LayerEditor::OnUpdateRemoveLayerUI(wxUpdateUIEvent& event) {
-            if (IsBeingDeleted()) return;
-
+        bool LayerEditor::canRemoveLayer() const {
             const auto* layer = m_layerList->selectedLayer();
             if (layer == nullptr) {
-                event.Enable(false);
-                return;
+                return false;
             }
 
             if (findVisibleAndUnlockedLayer(layer) == nullptr) {
-                event.Enable(false);
-                return;
+                return false;
             }
 
             auto document = lock(m_document);
-            event.Enable(layer != document->world()->defaultLayer());
+            return (layer != document->world()->defaultLayer());
         }
 
-        void LayerEditor::OnShowAllLayers(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
+        void LayerEditor::onShowAllLayers() {
             auto document = lock(m_document);
-            const auto& layers = document->world()->allLayers();
+            const auto layers = document->world()->allLayers();
             document->resetVisibility(Model::NodeList(std::begin(layers), std::end(layers)));
         }
 
@@ -402,32 +360,38 @@ namespace TrenchBroom {
         }
 
         void LayerEditor::createGui() {
-            m_layerList = new LayerListBox(this, m_document);
-            m_layerList->Bind(LAYER_SET_CURRENT_EVENT, &LayerEditor::OnSetCurrentLayer, this);
-            m_layerList->Bind(LAYER_RIGHT_CLICK_EVENT, &LayerEditor::OnLayerRightClick, this);
-            m_layerList->Bind(LAYER_TOGGLE_VISIBLE_EVENT, &LayerEditor::OnToggleLayerVisibleFromList, this);
-            m_layerList->Bind(LAYER_TOGGLE_LOCKED_EVENT, &LayerEditor::OnToggleLayerLockedFromList, this);
+            m_layerList = new LayerListBox(m_document, this);
+            connect(m_layerList, &LayerListBox::layerSetCurrent, this, &LayerEditor::onSetCurrentLayer);
+            connect(m_layerList, &LayerListBox::layerRightClicked, this, &LayerEditor::onLayerRightClick);
+            connect(m_layerList, &LayerListBox::layerVisibilityToggled, this, &LayerEditor::onToggleLayerVisibleFromList);
+            connect(m_layerList, &LayerListBox::layerLockToggled, this, &LayerEditor::onToggleLayerLockedFromList);
+            connect(m_layerList, &LayerListBox::itemSelectionChanged, this, &LayerEditor::updateButtons);
 
-            auto* addLayerButton = createBitmapButton(this, "Add.png", "Add a new layer from the current selection");
-            auto* removeLayerButton = createBitmapButton(this, "Remove.png", "Remove the selected layer and move its objects to the default layer");
-            auto* showAllLayersButton = createBitmapButton(this, "Visible.png", "Show all layers");
+            m_addLayerButton = createBitmapButton("Add.png", tr("Add a new layer from the current selection"));
+            m_removeLayerButton = createBitmapButton("Remove.png", tr("Remove the selected layer and move its objects to the default layer"));
+            m_showAllLayersButton = createBitmapButton("Hidden_off.png", tr("Show all layers"));
 
-            addLayerButton->Bind(wxEVT_BUTTON, &LayerEditor::OnAddLayer, this);
-            removeLayerButton->Bind(wxEVT_BUTTON, &LayerEditor::OnRemoveLayer, this);
-            removeLayerButton->Bind(wxEVT_UPDATE_UI, &LayerEditor::OnUpdateRemoveLayerUI, this);
-            showAllLayersButton->Bind(wxEVT_BUTTON, &LayerEditor::OnShowAllLayers, this);
+            connect(m_addLayerButton, &QAbstractButton::pressed, this, &LayerEditor::onAddLayer);
+            connect(m_removeLayerButton, &QAbstractButton::pressed, this, &LayerEditor::onRemoveLayer);
+            connect(m_showAllLayersButton, &QAbstractButton::pressed, this, &LayerEditor::onShowAllLayers);
 
-            auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
-            buttonSizer->Add(addLayerButton, 0, wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM, LayoutConstants::NarrowVMargin);
-            buttonSizer->Add(removeLayerButton, 0, wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM, LayoutConstants::NarrowVMargin);
-            buttonSizer->Add(showAllLayersButton, 0, wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM, LayoutConstants::NarrowVMargin);
-            buttonSizer->AddStretchSpacer();
+            auto* buttonSizer = new QHBoxLayout();
+            buttonSizer->addWidget(m_addLayerButton);
+            buttonSizer->addWidget(m_removeLayerButton);
+            buttonSizer->addWidget(m_showAllLayersButton);
+            buttonSizer->addStretch(1);
 
-            auto* sizer = new wxBoxSizer(wxVERTICAL);
-            sizer->Add(m_layerList, 1, wxEXPAND);
-            sizer->Add(new BorderLine(this, BorderLine::Direction_Horizontal), 0, wxEXPAND);
-            sizer->Add(buttonSizer, 0, wxEXPAND);
-            SetSizer(sizer);
+            auto* sizer = new QVBoxLayout();
+            sizer->setContentsMargins(0, 0, 0, 0);
+            sizer->setSpacing(0);
+            sizer->addWidget(m_layerList, 1);
+            sizer->addWidget(new BorderLine(BorderLine::Direction_Horizontal), 0);
+            sizer->addLayout(buttonSizer, 0);
+            setLayout(sizer);
+        }
+
+        void LayerEditor::updateButtons() {
+            m_removeLayerButton->setEnabled(canRemoveLayer());
         }
     }
 }

@@ -20,7 +20,6 @@
 #ifndef TextureCollectionLoader_h
 #define TextureCollectionLoader_h
 
-#include "StringUtils.h"
 #include "IO/Path.h"
 
 #include <memory>

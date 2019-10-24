@@ -21,35 +21,23 @@
 
 #include "View/ViewConstants.h"
 
-#include <wx/dcbuffer.h>
-
 namespace TrenchBroom {
     namespace View {
-        BorderLine::BorderLine(wxWindow* parent, Direction direction, const int thickness) :
-        wxWindow(parent, wxID_ANY) {
-            SetForegroundColour(Colors::borderColor());
-            SetBackgroundStyle(wxBG_STYLE_PAINT);
-            Bind(wxEVT_PAINT, &BorderLine::OnPaint, this);
+        BorderLine::BorderLine(const Direction direction, const int thickness, QWidget* parent) :
+        QFrame(parent) {
+            setContentsMargins(0, 0, 0, 0);
+            setFrameShadow(QFrame::Plain);
+            setStyleSheet(" BorderLine { color: " + Colors::borderColor().name() + "; }");
+            setLineWidth(thickness - 1);
             if (direction == Direction_Horizontal) {
-                const wxSize size(wxSize(wxDefaultSize.x, thickness));
-                SetMinSize(size);
-                SetMaxSize(size);
+                setFrameShape(QFrame::HLine);
+                setFixedHeight(thickness); // necessary to remove extra space around the horizontal line
             } else {
-                const wxSize size(wxSize(thickness, wxDefaultSize.y));
-                SetMinSize(size);
-                SetMaxSize(size);
+                setFrameShape(QFrame::VLine);
+#if !defined __APPLE__
+                setFixedWidth(thickness); // this makes the vertical line disappear on macOS
+#endif
             }
-        }
-
-        void BorderLine::OnPaint(wxPaintEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            wxAutoBufferedPaintDC dc(this);
-            dc.SetPen(wxPen(GetForegroundColour()));
-            dc.SetBrush(wxBrush(GetForegroundColour()));
-
-            dc.DrawRectangle(GetClientRect());
-            event.Skip();
         }
     }
 }

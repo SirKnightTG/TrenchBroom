@@ -22,30 +22,39 @@
 
 #include "View/ViewTypes.h"
 
-#include <wx/panel.h>
+#include <QListWidget>
 
-class wxButton;
-class wxListBox;
-class wxStaticText;
+class QPushButton;
+class QListWidget;
+class QLabel;
 
 namespace TrenchBroom {
     namespace View {
-        class EntityDefinitionFileChooser : public wxPanel {
+        class SingleSelectionListWidget : public QListWidget {
+            Q_OBJECT
+        private:
+            bool m_allowDeselectAll;
+        public:
+            explicit SingleSelectionListWidget(QWidget* parent = nullptr);
+            void setAllowDeselectAll(bool allow);
+            bool allowDeselectAll() const;
+        protected: // QAbstractItemView overrides
+            void selectionChanged(const QItemSelection& selected, const QItemSelection& deselected) override;
+            //QItemSelectionModel::SelectionFlags selectionCommand(const QModelIndex& index, const QEvent* event) const override;
+        };
+
+        class EntityDefinitionFileChooser : public QWidget {
+            Q_OBJECT
         private:
             MapDocumentWPtr m_document;
 
-            wxListBox* m_builtin;
-            wxStaticText* m_external;
-            wxButton* m_chooseExternal;
-            wxButton* m_reloadExternal;
+            SingleSelectionListWidget* m_builtin;
+            QLabel* m_external;
+            QPushButton* m_chooseExternal;
+            QPushButton* m_reloadExternal;
         public:
-            EntityDefinitionFileChooser(wxWindow* parent, MapDocumentWPtr document);
-            ~EntityDefinitionFileChooser();
-
-            void OnBuiltinSelectionChanged(wxCommandEvent& event);
-            void OnChooseExternalClicked(wxCommandEvent& event);
-            void OnReloadExternalClicked(wxCommandEvent& event);
-            void OnUpdateReloadExternal(wxUpdateUIEvent& event);
+            explicit EntityDefinitionFileChooser(MapDocumentWPtr document, QWidget* parent = nullptr);
+            ~EntityDefinitionFileChooser() override;
         private:
             void createGui();
             void bindEvents();
@@ -58,6 +67,10 @@ namespace TrenchBroom {
             void entityDefinitionsDidChange();
 
             void updateControls();
+
+            void builtinSelectionChanged();
+            void chooseExternalClicked();
+            void reloadExternalClicked();
         };
     }
 }

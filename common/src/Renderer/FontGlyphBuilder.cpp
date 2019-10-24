@@ -19,11 +19,11 @@
 
 #include "FontGlyphBuilder.h"
 
+#include "Ensure.h"
 #include "Renderer/FontTexture.h"
 
 #include <cassert>
 #include <cstring>
-#include <memory>
 
 namespace TrenchBroom {
     namespace Renderer {

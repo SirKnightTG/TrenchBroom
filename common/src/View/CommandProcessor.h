@@ -21,13 +21,9 @@
 #define TrenchBroom_CommandProcessor
 
 #include "Notifier.h"
-#include "StringUtils.h"
+#include "StringType.h"
 #include "View/Command.h"
 #include "View/UndoableCommand.h"
-#include "View/ViewTypes.h"
-
-// unfortunately we must depend on wx Widgets for time stamps here
-#include <wx/longlong.h>
 
 #include <vector>
 
@@ -66,7 +62,7 @@ namespace TrenchBroom {
 
         class CommandProcessor {
         private:
-            static const wxLongLong CollationInterval;
+            static const int64_t CollationInterval;
 
             MapDocumentCommandFacade* m_document;
 
@@ -75,7 +71,7 @@ namespace TrenchBroom {
             CommandStack m_nextCommandStack;
             CommandStack m_repeatableCommandStack;
             bool m_clearRepeatableCommandStack;
-            wxLongLong m_lastCommandTimestamp;
+            int64_t m_lastCommandTimestamp;
 
             String m_groupName;
             CommandStack m_groupedCommands;
@@ -83,7 +79,7 @@ namespace TrenchBroom {
 
             struct SubmitAndStoreResult;
         public:
-            CommandProcessor(MapDocumentCommandFacade* document);
+            explicit CommandProcessor(MapDocumentCommandFacade* document);
 
             Notifier<Command::Ptr> commandDoNotifier;
             Notifier<Command::Ptr> commandDoneNotifier;
@@ -91,6 +87,15 @@ namespace TrenchBroom {
             Notifier<UndoableCommand::Ptr> commandUndoNotifier;
             Notifier<UndoableCommand::Ptr> commandUndoneNotifier;
             Notifier<UndoableCommand::Ptr> commandUndoFailedNotifier;
+
+            /**
+             * Fired when a transaction completes successfully.
+             */
+            Notifier<const String&> transactionDoneNotifier;
+            /**
+             * Fired when a transaction is undone successfully.
+             */
+            Notifier<const String&> transactionUndoneNotifier;
 
             bool hasLastCommand() const;
             bool hasNextCommand() const;
@@ -107,6 +112,7 @@ namespace TrenchBroom {
             bool undoLastCommand();
             bool redoNextCommand();
 
+            bool hasRepeatableCommands() const;
             bool repeatLastCommands();
             void clearRepeatableCommands();
 
@@ -124,7 +130,7 @@ namespace TrenchBroom {
             UndoableCommand::Ptr createCommandGroup(const String& name, const CommandList& commands);
 
             bool pushLastCommand(UndoableCommand::Ptr command, bool collate);
-            bool collatable(bool collate, const wxLongLong& timestamp) const;
+            bool collatable(bool collate, int64_t timestamp) const;
 
             void pushNextCommand(UndoableCommand::Ptr command);
             void pushRepeatableCommand(UndoableCommand::Ptr command);

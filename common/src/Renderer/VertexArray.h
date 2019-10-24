@@ -20,13 +20,15 @@
 #ifndef TrenchBroom_VertexArrayRenderer
 #define TrenchBroom_VertexArrayRenderer
 
-#include "CollectionUtils.h"
+#include "Ensure.h"
 #include "Renderer/GL.h"
-#include "SharedPointer.h"
 #include "Renderer/Vbo.h"
 #include "Renderer/VboBlock.h"
 #include "Renderer/GLVertex.h"
 #include "Renderer/GLVertexType.h"
+#include "VectorUtilsMinimal.h"
+
+#include <memory>
 
 namespace TrenchBroom {
     namespace Renderer {

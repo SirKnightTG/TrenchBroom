@@ -21,14 +21,12 @@
 #define GameEngineConfigParser_h
 
 #include "Macros.h"
-#include "StringUtils.h"
+#include "StringType.h"
 #include "EL.h"
 #include "IO/ConfigParserBase.h"
 #include "IO/Path.h"
 #include "Model/GameEngineConfig.h"
 #include "Model/GameEngineProfile.h"
-
-#include <iostream>
 
 namespace TrenchBroom {
     namespace IO {

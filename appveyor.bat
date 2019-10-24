@@ -1,5 +1,13 @@
 PATH=%PATH%;C:\Program Files (x86)\Pandoc;C:\Program Files\Cppcheck
 
+REM Init submodules
+git submodule update --init --recursive
+
+REM Check versions
+qmake -v
+cmake --version
+cppcheck --version
+
 mkdir cmakebuild
 cd cmakebuild
 
@@ -17,19 +25,28 @@ cmake --build . --config Release
 
 IF ERRORLEVEL 1 GOTO ERROR
 
+set BUILD_DIR="%cd%"
+
+cd lib\vecmath\test\Release
+vecmath-test.exe
+IF ERRORLEVEL 1 GOTO ERROR
+cd "%BUILD_DIR%"
+
+cd common\test\Release
+common-test.exe
+IF ERRORLEVEL 1 GOTO ERROR
+cd "%BUILD_DIR%"
+
+cd common\benchmark\Release
+common-benchmark.exe
+IF ERRORLEVEL 1 GOTO ERROR
+cd "%BUILD_DIR%"
+
 cpack
 
 IF ERRORLEVEL 1 GOTO ERROR
 
 call generate_checksum.bat
-
-Release\TrenchBroom-Test.exe
-
-IF ERRORLEVEL 1 GOTO ERROR
-
-Release\TrenchBroom-Benchmark.exe
-
-IF ERRORLEVEL 1 GOTO ERROR
 
 GOTO END
 
@@ -39,7 +56,7 @@ echo.
 echo "cppcheck detected issues, see below"
 echo.
 
-type cppcheck-errors.txt
+type common\cppcheck-errors.txt
 
 echo.
 

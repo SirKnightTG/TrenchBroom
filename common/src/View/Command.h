@@ -20,12 +20,11 @@
 #ifndef TrenchBroom_Command
 #define TrenchBroom_Command
 
-#include "StringUtils.h"
-#include "SharedPointer.h"
-#include "View/ViewTypes.h"
+#include "Macros.h"
+#include "StringType.h"
 
 #include <functional>
-#include <vector>
+#include <memory>
 
 namespace TrenchBroom {
     namespace View {

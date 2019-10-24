@@ -20,6 +20,8 @@
 #include "PointGuideRenderer.h"
 
 #include "TrenchBroom.h"
+#include "SharedPointer.h"
+
 #include <vecmath/vec.h>
 #include <vecmath/ray.h>
 
@@ -45,12 +47,12 @@ namespace TrenchBroom {
             m_spikeRenderer.clear();
 
             View::MapDocumentSPtr document = lock(m_document);
-            m_spikeRenderer.add(vm::ray3(position, vm::vec3::pos_x), SpikeLength, document);
-            m_spikeRenderer.add(vm::ray3(position, vm::vec3::neg_x), SpikeLength, document);
-            m_spikeRenderer.add(vm::ray3(position, vm::vec3::pos_y), SpikeLength, document);
-            m_spikeRenderer.add(vm::ray3(position, vm::vec3::neg_y), SpikeLength, document);
-            m_spikeRenderer.add(vm::ray3(position, vm::vec3::pos_z), SpikeLength, document);
-            m_spikeRenderer.add(vm::ray3(position, vm::vec3::neg_z), SpikeLength, document);
+            m_spikeRenderer.add(vm::ray3(position, vm::vec3::pos_x()), SpikeLength, document);
+            m_spikeRenderer.add(vm::ray3(position, vm::vec3::neg_x()), SpikeLength, document);
+            m_spikeRenderer.add(vm::ray3(position, vm::vec3::pos_y()), SpikeLength, document);
+            m_spikeRenderer.add(vm::ray3(position, vm::vec3::neg_y()), SpikeLength, document);
+            m_spikeRenderer.add(vm::ray3(position, vm::vec3::pos_z()), SpikeLength, document);
+            m_spikeRenderer.add(vm::ray3(position, vm::vec3::neg_z()), SpikeLength, document);
 
             m_position = position;
         }

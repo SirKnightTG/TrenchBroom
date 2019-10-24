@@ -20,14 +20,12 @@
 #ifndef CompilationConfigParser_h
 #define CompilationConfigParser_h
 
-#include "StringUtils.h"
+#include "StringType.h"
 #include "IO/ConfigParserBase.h"
 #include "IO/Path.h"
 #include "Model/CompilationConfig.h"
 #include "Model/CompilationProfile.h"
 #include "Model/CompilationTask.h"
-
-#include <iostream>
 
 namespace TrenchBroom {
     namespace IO {

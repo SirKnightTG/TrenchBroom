@@ -19,8 +19,11 @@
 
 #include "ToolBoxConnector.h"
 
+#include "Macros.h"
 #include "View/ToolBox.h"
 #include "View/ToolChain.h"
+
+#include <QGuiApplication>
 
 namespace TrenchBroom {
     namespace View {
@@ -52,11 +55,6 @@ namespace TrenchBroom {
             m_inputState.setPickResult(pickResult);
         }
 
-        void ToolBoxConnector::updateLastActivation() {
-            ensure(m_toolBox != nullptr, "toolBox is null");
-            m_toolBox->updateLastActivation();
-        }
-
         void ToolBoxConnector::setToolBox(ToolBox& toolBox) {
             assert(m_toolBox == nullptr);
             m_toolBox = &toolBox;
@@ -66,7 +64,7 @@ namespace TrenchBroom {
             m_toolChain->append(tool);
         }
 
-        bool ToolBoxConnector::dragEnter(const wxCoord x, const wxCoord y, const String& text) {
+        bool ToolBoxConnector::dragEnter(const int x, const int y, const String& text) {
             ensure(m_toolBox != nullptr, "toolBox is null");
 
             mouseMoved(x, y);
@@ -75,7 +73,7 @@ namespace TrenchBroom {
             return m_toolBox->dragEnter(m_toolChain, m_inputState, text);
         }
 
-        bool ToolBoxConnector::dragMove(const wxCoord x, const wxCoord y, const String& text) {
+        bool ToolBoxConnector::dragMove(const int x, const int y, const String& text) {
             ensure(m_toolBox != nullptr, "toolBox is null");
 
             mouseMoved(x, y);
@@ -90,7 +88,7 @@ namespace TrenchBroom {
             m_toolBox->dragLeave(m_toolChain, m_inputState);
         }
 
-        bool ToolBoxConnector::dragDrop(const wxCoord x, const wxCoord y, const String& text) {
+        bool ToolBoxConnector::dragDrop(const int x, const int y, const String& text) {
             ensure(m_toolBox != nullptr, "toolBox is null");
 
             updatePickResult();
@@ -116,33 +114,47 @@ namespace TrenchBroom {
         }
 
         ModifierKeyState ToolBoxConnector::modifierKeys() {
-            const wxMouseState mouseState = wxGetMouseState();
+            // QGuiApplication::queryKeyboardModifiers() is needed instead of QGuiApplication::keyboardModifiers(),
+            // because when a modifier (e.g. Shift) is pressed, QGuiApplication::keyboardModifiers() isn't updated
+            // soon enough.
+            const Qt::KeyboardModifiers mouseState = QGuiApplication::queryKeyboardModifiers();
 
             ModifierKeyState state = ModifierKeys::MKNone;
-            if (mouseState.CmdDown())
+            if (mouseState & Qt::ControlModifier) {
                 state |= ModifierKeys::MKCtrlCmd;
-            if (mouseState.ShiftDown())
+            }
+            if (mouseState & Qt::ShiftModifier) {
                 state |= ModifierKeys::MKShift;
-            if (mouseState.AltDown())
+            }
+            if (mouseState & Qt::AltModifier) {
                 state |= ModifierKeys::MKAlt;
+            }
             return state;
         }
 
+        /**
+         * Updates the TB modifier key state from the Qt state.
+         * Returns whether the TB modifier key state changed from its previously cached value.
+         */
         bool ToolBoxConnector::setModifierKeys() {
             const ModifierKeyState keys = modifierKeys();
             if (keys != m_inputState.modifierKeys()) {
                 m_inputState.setModifierKeys(keys);
                 return true;
+            } else {
+                return false;
             }
-            return false;
         }
 
         bool ToolBoxConnector::clearModifierKeys() {
             if (m_inputState.modifierKeys() != ModifierKeys::MKNone) {
                 m_inputState.setModifierKeys(ModifierKeys::MKNone);
+                updatePickResult();
+                m_toolBox->modifierKeyChange(m_toolChain, m_inputState);
                 return true;
+            } else {
+                return false;
             }
-            return false;
         }
 
         void ToolBoxConnector::updateModifierKeys() {
@@ -200,10 +212,6 @@ namespace TrenchBroom {
         }
 
         void ToolBoxConnector::processMouseButtonDown(const MouseEvent& event) {
-            if (m_toolBox->ignoreNextClick() && event.button == MouseEvent::Button::Left) {
-                return;
-            }
-
             updateModifierKeys();
             m_inputState.mouseDown(mouseButton(event));
             m_toolBox->mouseDown(m_toolChain, m_inputState);
@@ -213,13 +221,6 @@ namespace TrenchBroom {
         }
 
         void ToolBoxConnector::processMouseButtonUp(const MouseEvent& event) {
-            if (m_toolBox->ignoreNextClick() && event.button == MouseEvent::Button::Left) {
-                m_toolBox->clearIgnoreNextClick();
-                return;
-            } else {
-                m_toolBox->clearIgnoreNextClick();
-            }
-
             updateModifierKeys();
             m_toolBox->mouseUp(m_toolChain, m_inputState);
             m_inputState.mouseUp(mouseButton(event));
@@ -240,8 +241,6 @@ namespace TrenchBroom {
         }
 
         void ToolBoxConnector::processMouseDoubleClick(const MouseEvent& event) {
-            m_toolBox->clearIgnoreNextClick();
-
             updateModifierKeys();
             m_inputState.mouseDown(mouseButton(event));
             m_toolBox->mouseDoubleClick(m_toolChain, m_inputState);
@@ -278,7 +277,7 @@ namespace TrenchBroom {
             updatePickResult();
             if (m_toolBox->dragging()) {
                 if (!m_toolBox->mouseDrag(m_inputState)) {
-                    processDragEnd(event);
+                        processDragEnd(event);
                 }
             }
         }

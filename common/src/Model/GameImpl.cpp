@@ -33,7 +33,6 @@
 #include "IO/FileMatcher.h"
 #include "IO/FileSystem.h"
 #include "IO/IOUtils.h"
-#include "IO/MapParser.h"
 #include "IO/MdlParser.h"
 #include "IO/Md2Parser.h"
 #include "IO/Md3Parser.h"
@@ -54,8 +53,6 @@
 #include "Model/World.h"
 
 #include "Exceptions.h"
-
-#include <cstdio>
 
 namespace TrenchBroom {
     namespace Model {
@@ -310,9 +307,11 @@ namespace TrenchBroom {
             const auto paths = m_config.entityConfig().defFilePaths;
             const auto count = paths.size();
 
-            Assets::EntityDefinitionFileSpec::List result(count);
-            for (size_t i = 0; i < count; ++i) {
-                result[i] = Assets::EntityDefinitionFileSpec::builtin(paths[i]);
+            Assets::EntityDefinitionFileSpec::List result;
+            result.reserve(count);
+
+            for (const auto& path : paths) {
+                result.push_back(Assets::EntityDefinitionFileSpec::builtin(path));
             }
 
             return result;

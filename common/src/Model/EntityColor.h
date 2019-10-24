@@ -20,19 +20,23 @@
 #ifndef TrenchBroom_EntityColor
 #define TrenchBroom_EntityColor
 
-#include "StringUtils.h"
-#include "Assets/ColorRange.h"
+#include "Color.h"
+#include "StringType.h"
 #include "Model/ModelTypes.h"
 
-#include <wx/colour.h>
-
 namespace TrenchBroom {
+    namespace Assets {
+        namespace ColorRange {
+            using Type = int;
+        }
+    }
+
     namespace Model {
         Assets::ColorRange::Type detectColorRange(const AttributeName& name, const AttributableNodeList& attributables);
 
         const String convertEntityColor(const String& str, Assets::ColorRange::Type colorRange);
-        wxColor parseEntityColor(const String& str);
-        String entityColorAsString(const wxColor& color, Assets::ColorRange::Type colorRange);
+        Color parseEntityColor(const String& str);
+        String entityColorAsString(const Color& color, Assets::ColorRange::Type colorRange);
     }
 }
 

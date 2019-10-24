@@ -22,7 +22,9 @@
 
 #include "View/ViewTypes.h"
 
-#include <wx/panel.h>
+#include <QWidget>
+
+class QAbstractButton;
 
 namespace TrenchBroom {
     namespace Model {
@@ -34,22 +36,23 @@ namespace TrenchBroom {
         class CompilationProfileListBox;
         class CompilationProfileEditor;
 
-        class CompilationProfileManager : public wxPanel {
+        class CompilationProfileManager : public QWidget {
+            Q_OBJECT
         private:
             Model::CompilationConfig& m_config;
             CompilationProfileListBox* m_profileList;
             CompilationProfileEditor* m_profileEditor;
+            QAbstractButton* m_removeProfileButton;
         public:
-            CompilationProfileManager(wxWindow* parent, MapDocumentWPtr document, Model::CompilationConfig& config);
+            CompilationProfileManager(MapDocumentWPtr document, Model::CompilationConfig& config, QWidget* parent = nullptr);
 
             const Model::CompilationProfile* selectedProfile() const;
-        private:
-            void OnAddProfile(wxCommandEvent& event);
-            void OnRemoveProfile(wxCommandEvent& event);
-            void OnUpdateAddProfileButtonUI(wxUpdateUIEvent& event);
-            void OnUpdateRemoveProfileButtonUI(wxUpdateUIEvent& event);
-
-            void OnProfileSelectionChanged(wxCommandEvent& event);
+        private slots:
+            void addProfile();
+            void removeProfile();
+            void profileSelectionChanged();
+        signals:
+            void selectedProfileChanged();
         };
     }
 }

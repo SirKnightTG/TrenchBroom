@@ -20,16 +20,15 @@
 #ifndef TrenchBroom_SwitchableMapViewContainer
 #define TrenchBroom_SwitchableMapViewContainer
 
+#include <QWidget>
+
 #include "TrenchBroom.h"
-#include "View/MapViewLayout.h"
 #include "View/MapView.h"
+#include "View/MapViewActivationTracker.h"
+#include "View/MapViewLayout.h"
 #include "View/ViewTypes.h"
 
-#include <vecmath/scalar.h>
-
-#include <wx/panel.h>
-
-class wxWindow;
+#include <memory>
 
 namespace TrenchBroom {
     class Logger;
@@ -48,31 +47,36 @@ namespace TrenchBroom {
         class Inspector;
         class MapViewContainer;
         class MapViewBar;
+        class MapViewBase;
         class MapViewToolBox;
         class Tool;
         class VertexTool;
         class EdgeTool;
         class FaceTool;
 
-        class SwitchableMapViewContainer : public wxPanel, public MapView {
+        class SwitchableMapViewContainer : public QWidget, public MapView {
+            Q_OBJECT
         private:
             Logger* m_logger;
             MapDocumentWPtr m_document;
             GLContextManager& m_contextManager;
 
             MapViewBar* m_mapViewBar;
-            MapViewToolBox* m_toolBox;
+            std::unique_ptr<MapViewToolBox> m_toolBox;
 
-            Renderer::MapRenderer* m_mapRenderer;
+            std::unique_ptr<Renderer::MapRenderer> m_mapRenderer;
 
             MapViewContainer* m_mapView;
+            MapViewActivationTracker m_activationTracker;
         public:
-            SwitchableMapViewContainer(wxWindow* parent, Logger* logger, MapDocumentWPtr document, GLContextManager& contextManager);
+            SwitchableMapViewContainer(Logger* logger, MapDocumentWPtr document, GLContextManager& contextManager, QWidget* parent = nullptr);
             ~SwitchableMapViewContainer() override;
 
             void connectTopWidgets(Inspector* inspector);
 
-            bool viewportHasFocus() const;
+            void windowActivationStateChanged(bool active);
+
+            bool active() const;
             void switchToMapView(MapViewLayout viewId);
 
             bool anyToolActive() const;
@@ -110,6 +114,7 @@ namespace TrenchBroom {
             VertexTool* vertexTool();
             EdgeTool* edgeTool();
             FaceTool* faceTool();
+            MapViewToolBox* mapViewToolBox();
 
             bool canMoveCameraToNextTracePoint() const;
             bool canMoveCameraToPreviousTracePoint() const;
@@ -124,18 +129,17 @@ namespace TrenchBroom {
             void unbindObservers();
             void refreshViews(Tool* tool);
         private: // implement MapView interface
+            void doInstallActivationTracker(MapViewActivationTracker& activationTracker) override;
             bool doGetIsCurrent() const override;
-            void doSetToolBoxDropTarget() override;
-            void doClearDropTarget() override;
+            MapViewBase* doGetFirstMapViewBase() override;
             bool doCanSelectTall() override;
             void doSelectTall() override;
-            bool doCanFlipObjects() const override;
-            void doFlipObjects(vm::direction direction) override;
             vm::vec3 doGetPasteObjectsDelta(const vm::bbox3& bounds, const vm::bbox3& referenceBounds) const override;
             void doFocusCameraOnSelection(bool animate) override;
             void doMoveCameraToPosition(const vm::vec3& position, bool animate) override;
             void doMoveCameraToCurrentTracePoint() override;
             bool doCancelMouseDrag() override;
+            void doRefreshViews() override;
         private: // implement ViewEffectsService interface
             void doFlashSelection() override;
         };

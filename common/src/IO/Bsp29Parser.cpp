@@ -28,6 +28,7 @@
 #include "IO/IdMipTextureReader.h"
 #include "Renderer/TexturedIndexRangeMap.h"
 #include "Renderer/TexturedIndexRangeMapBuilder.h"
+#include "StringStream.h"
 
 namespace TrenchBroom {
     namespace IO {
@@ -293,7 +294,7 @@ namespace TrenchBroom {
 
         vm::vec2f Bsp29Parser::textureCoords(const vm::vec3f& vertex, const TextureInfo& textureInfo, const Assets::Texture* texture) const {
             if (texture == nullptr) {
-                return vm::vec2f::zero;
+                return vm::vec2f::zero();
             } else {
                 return vm::vec2f((dot(vertex, textureInfo.sAxis) + textureInfo.sOffset) / texture->width(),
                                  (dot(vertex, textureInfo.tAxis) + textureInfo.tOffset) / texture->height());

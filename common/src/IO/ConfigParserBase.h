@@ -20,12 +20,10 @@
 #ifndef ConfigParserBase_h
 #define ConfigParserBase_h
 
-#include "StringUtils.h"
+#include "StringType.h"
 #include "EL.h"
 #include "IO/ELParser.h"
 #include "IO/Path.h"
-
-#include <memory>
 
 namespace TrenchBroom {
     namespace IO {

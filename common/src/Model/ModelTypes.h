@@ -21,11 +21,9 @@
 #define TrenchBroom_ModelTypes_h
 
 #include "TrenchBroom.h"
-#include "StringUtils.h"
+#include "StringType.h"
 #include "SharedPointer.h"
-#include "Model/BrushGeometry.h"
 
-#include <vecmath/segment.h>
 #include <vecmath/polygon.h>
 
 #include <map>
@@ -107,13 +105,9 @@ namespace TrenchBroom {
         using AttributeValue = String;
         using AttributeValueList = std::vector<AttributeValue>;
 
-        using BrushEdgeSet = std::set<BrushEdge*>;
-        static const BrushEdgeSet EmptyBrushEdgeSet;
-
         using VertexToBrushesMap = std::map<vm::vec3, BrushSet>;
         using EdgeToBrushesMap = std::map<vm::segment3, BrushSet>;
         using FaceToBrushesMap = std::map<vm::polygon3, BrushSet>;
-        using VertexToEdgesMap = std::map<vm::vec3, BrushEdgeSet>;
         using VertexToFacesMap = std::map<vm::vec3, BrushFaceSet>;
         using BrushVerticesMap = std::map<Model::Brush*, std::vector<vm::vec3>>;
         using BrushEdgesMap = std::map<Model::Brush*, std::vector<vm::segment3>>;

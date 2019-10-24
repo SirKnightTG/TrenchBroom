@@ -19,6 +19,8 @@
 
 #include "IOUtils.h"
 
+#include "Ensure.h"
+#include "Exceptions.h"
 #include "IO/Path.h"
 
 #include <vecmath/forward.h>

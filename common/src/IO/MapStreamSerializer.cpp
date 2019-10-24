@@ -19,9 +19,12 @@
 
 #include "MapStreamSerializer.h"
 
+#include "Exceptions.h"
 #include "Macros.h"
 #include "StringUtils.h"
 #include "Model/BrushFace.h"
+
+#include <ostream>
 
 namespace TrenchBroom {
     namespace IO {

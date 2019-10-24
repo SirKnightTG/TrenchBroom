@@ -21,19 +21,16 @@
 #define TrenchBroom_SmartColorEditor
 
 #include "SharedPointer.h"
-#include "StringUtils.h"
 #include "Model/ModelTypes.h"
 #include "View/SmartAttributeEditor.h"
 #include "View/ViewTypes.h"
+#include "View/ColorButton.h"
 
-#include <wx/colour.h>
+#include <QColor>
 
-class wxColourPickerCtrl;
-class wxColourPickerEvent;
-class wxCommandEvent;
-class wxPanel;
-class wxRadioButton;
-class wxWindow;
+class QWidget;
+class QPushButton;
+class QRadioButton;
 
 namespace TrenchBroom {
     namespace View {
@@ -41,25 +38,19 @@ namespace TrenchBroom {
         class ColorTableSelectedCommand;
 
         class SmartColorEditor : public SmartAttributeEditor {
+            Q_OBJECT
         private:
             static const size_t ColorHistoryCellSize = 15;
-            using wxColorList = std::vector<wxColour>;
+            using wxColorList = std::vector<QColor>;
 
-            wxPanel* m_panel;
-            wxRadioButton* m_floatRadio;
-            wxRadioButton* m_byteRadio;
-            wxColourPickerCtrl* m_colorPicker;
+            QRadioButton* m_floatRadio;
+            QRadioButton* m_byteRadio;
+            ColorButton* m_colorPicker;
             ColorTable* m_colorHistory;
         public:
-            SmartColorEditor(View::MapDocumentWPtr document);
-
-            void OnFloatRangeRadioButton(wxCommandEvent& event);
-            void OnByteRangeRadioButton(wxCommandEvent& event);
-            void OnColorPickerChanged(wxColourPickerEvent& event);
-            void OnColorTableSelected(ColorTableSelectedCommand& event);
+            explicit SmartColorEditor(View::MapDocumentWPtr document, QWidget* parent = nullptr);
         private:
-            wxWindow* doCreateVisual(wxWindow* parent) override;
-            void doDestroyVisual() override;
+            void createGui();
             void doUpdateVisual(const Model::AttributableNodeList& attributables) override;
 
             class CollectColorsVisitor;
@@ -67,7 +58,12 @@ namespace TrenchBroom {
             void updateColorRange(const Model::AttributableNodeList& attributables);
             void updateColorHistory();
 
-            void setColor(const wxColor& wxColor) const;
+            void setColor(const QColor& wxColor) const;
+
+            void floatRangeRadioButtonClicked();
+            void byteRangeRadioButtonClicked();
+            void colorPickerChanged(const QColor& color);
+            void colorTableSelected(QColor color);
         };
     }
 }

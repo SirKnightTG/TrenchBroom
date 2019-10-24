@@ -20,7 +20,7 @@
 #ifndef TrenchBroom_ColorRange_h
 #define TrenchBroom_ColorRange_h
 
-#include "StringUtils.h"
+#include "StringList.h"
 
 namespace TrenchBroom {
     namespace Assets {

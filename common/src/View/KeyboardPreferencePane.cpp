@@ -20,93 +20,81 @@
 #include "KeyboardPreferencePane.h"
 
 #include "Macros.h"
-#include "Preferences.h"
-#include "Assets/EntityDefinitionManager.h"
-#include "Model/Tag.h"
-#include "View/ActionManager.h"
-#include "View/BorderLine.h"
-#include "View/KeyboardShortcutGridTable.h"
+#include "View/Actions.h"
+#include "View/KeyboardShortcutItemDelegate.h"
+#include "View/KeyboardShortcutModel.h"
 #include "View/MapDocument.h"
 #include "View/ViewConstants.h"
+#include "View/wxUtils.h"
 
-#include <wx/msgdlg.h>
-#include <wx/settings.h>
-#include <wx/sizer.h>
-#include <wx/stattext.h>
+#include <QBoxLayout>
+#include <QHeaderView>
+#include <QLabel>
+#include <QMessageBox>
+#include <QTableView>
+#include <QSortFilterProxyModel>
+#include <QLineEdit>
 
 namespace TrenchBroom {
     namespace View {
-        KeyboardPreferencePane::KeyboardPreferencePane(wxWindow* parent, MapDocument* document) :
+        KeyboardPreferencePane::KeyboardPreferencePane(MapDocument* document, QWidget* parent) :
         PreferencePane(parent),
-        m_grid(nullptr),
-        m_table(nullptr) {
-            wxWindow* menuShortcutGrid = createMenuShortcutGrid(document);
+        m_table(nullptr),
+        m_model(nullptr),
+        m_proxy(nullptr) {
+            m_model = new KeyboardShortcutModel(document, this);
+            m_proxy = new QSortFilterProxyModel(this);
+            m_proxy->setSourceModel(m_model);
+            m_proxy->setFilterCaseSensitivity(Qt::CaseInsensitive);
+            m_proxy->setFilterKeyColumn(2); // Filter based on the text in the Description column
 
-            wxSizer* outerSizer = new wxBoxSizer(wxVERTICAL);
-            outerSizer->Add(menuShortcutGrid, 1, wxEXPAND);
-            outerSizer->SetItemMinSize(menuShortcutGrid, 900, 550);
-            SetSizerAndFit(outerSizer);
-        }
+            m_table = new QTableView();
+            m_table->setModel(m_proxy);
 
-        void KeyboardPreferencePane::OnGridSize(wxSizeEvent& event) {
-            if (IsBeingDeleted()) return;
+            autoResizeRows(m_table);
 
-            int width = m_grid->GetClientSize().x;
-            m_grid->AutoSizeColumn(0);
-            m_grid->AutoSizeColumn(1);
-            int colSize = width - m_grid->GetColSize(0) - m_grid->GetColSize(1);
-            if (colSize < -1 || colSize == 0)
-                colSize = -1;
-            m_grid->SetColSize(2, colSize);
-            event.Skip();
-        }
+            m_table->setStyleSheet("QTableView { border: none; }");
+            m_table->setHorizontalHeader(new QHeaderView(Qt::Horizontal));
+            m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeMode::ResizeToContents);
+            m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeMode::ResizeToContents);
+            m_table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeMode::Stretch);
 
-        wxWindow* KeyboardPreferencePane::createMenuShortcutGrid(MapDocument* document) {
-            ActionManager::ShortcutEntryList entries;
-            ActionManager& actionManager = ActionManager::instance();
-            if (document != nullptr) {
-                const auto& definitions = document->entityDefinitionManager().definitions();
-                actionManager.getShortcutEntries(document->smartTags(), definitions, entries);
-            } else {
-                actionManager.getShortcutEntries(std::list<Model::SmartTag>{}, Assets::EntityDefinitionList{}, entries);
-            }
+            m_table->setItemDelegate(new KeyboardShortcutItemDelegate());
 
-            wxPanel* container = new wxPanel(this);
+            QLineEdit* searchBox = createSearchBox();
 
-            m_table = new KeyboardShortcutGridTable(std::move(entries));
-            m_grid = new wxGrid(container, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE);
-            m_grid->Bind(wxEVT_SIZE, &KeyboardPreferencePane::OnGridSize, this);
+            auto* searchLayout = new QHBoxLayout();
+            searchLayout->setContentsMargins(LayoutConstants::WideHMargin,
+                                             LayoutConstants::WideVMargin,
+                                             LayoutConstants::WideHMargin,
+                                             LayoutConstants::WideVMargin);
+            searchLayout->addStretch();
+            searchLayout->addWidget(searchBox);
 
-            m_grid->SetTable(m_table, true, wxGrid::wxGridSelectRows);
-            m_grid->SetColLabelSize(18);
-            m_grid->SetDefaultCellBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
-            m_grid->HideRowLabels();
-            m_grid->SetCellHighlightPenWidth(0);
-            m_grid->SetCellHighlightROPenWidth(0);
+            auto* infoLabel = new QLabel(tr("Double-click on a key combination, then click into the shortcut editor to edit the shortcut."));
+            makeInfo(infoLabel);
 
-            m_grid->DisableColResize(0);
-            m_grid->DisableColResize(1);
-            m_grid->DisableColResize(2);
-            m_grid->DisableDragColMove();
-            m_grid->DisableDragCell();
-            m_grid->DisableDragColSize();
-            m_grid->DisableDragGridSize();
-            m_grid->DisableDragRowSize();
+            auto* infoLabelLayout = new QHBoxLayout();
+            infoLabelLayout->setContentsMargins(
+                LayoutConstants::WideHMargin,
+                LayoutConstants::WideVMargin,
+                LayoutConstants::WideHMargin,
+                LayoutConstants::WideVMargin);
+            infoLabelLayout->addWidget(infoLabel);
 
-            wxStaticText* infoText = new wxStaticText(container, wxID_ANY, "Click twice on a key combination to edit the shortcut. Press delete or backspace to delete a shortcut.");
-#if defined __APPLE__
-            infoText->SetFont(*wxSMALL_FONT);
-#endif
+            auto* layout = new QVBoxLayout();
+            layout->setContentsMargins(0, 0, 0, 0);
+            layout->setSpacing(0);
+            layout->addLayout(searchLayout);
+            layout->addWidget(m_table, 1);
+            layout->addLayout(infoLabelLayout);
+            setLayout(layout);
 
-            wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-            sizer->Add(m_grid, 1, wxEXPAND);
-            sizer->Add(new BorderLine(container, BorderLine::Direction_Horizontal), 0, wxEXPAND);
-            sizer->AddSpacer(LayoutConstants::WideVMargin);
-            sizer->Add(infoText, 0, wxALIGN_CENTER);
-            sizer->AddSpacer(LayoutConstants::NarrowVMargin);
-            container->SetSizer(sizer);
+            setMinimumSize(900, 550);
 
-            return container;
+            connect(searchBox, &QLineEdit::textChanged, this, [=](const QString& newText){
+                m_proxy->setFilterFixedString(newText);
+            });
         }
 
         bool KeyboardPreferencePane::doCanResetToDefaults() {
@@ -114,8 +102,9 @@ namespace TrenchBroom {
         }
 
         void KeyboardPreferencePane::doResetToDefaults() {
-            ActionManager& actionManager = ActionManager::instance();
-            actionManager.resetShortcutsToDefaults();
+            auto& actionManager = ActionManager::instance();
+            actionManager.resetAllKeySequences();
+            m_model->reset();
         }
 
         void KeyboardPreferencePane::doUpdateControls() {
@@ -123,9 +112,8 @@ namespace TrenchBroom {
         }
 
         bool KeyboardPreferencePane::doValidate() {
-            m_grid->SaveEditControlValue();
-            if (m_table->hasDuplicates()) {
-                wxMessageBox("Please fix all conflicting shortcuts (highlighted in red).", "Error", wxOK | wxCENTRE, this);
+            if (m_model->hasConflicts()) {
+                QMessageBox::warning(this, "Conflicts", "Please fix all conflicting shortcuts (highlighted in red).");
                 return false;
             }
             return true;

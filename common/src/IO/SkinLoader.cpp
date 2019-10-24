@@ -19,14 +19,15 @@
 
 #include "SkinLoader.h"
 
+#include "Ensure.h"
 #include "Exceptions.h"
 #include "Assets/Palette.h"
 #include "Assets/Texture.h"
 #include "IO/File.h"
 #include "IO/FreeImageTextureReader.h"
-#include "IO/IdMipTextureReader.h"
 #include "IO/Path.h"
 #include "IO/WalTextureReader.h"
+#include "StringUtils.h"
 
 namespace TrenchBroom {
     namespace IO {

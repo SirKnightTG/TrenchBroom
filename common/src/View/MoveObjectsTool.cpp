@@ -21,12 +21,6 @@
 
 #include "TrenchBroom.h"
 #include "Model/Brush.h"
-#include "Model/Entity.h"
-#include "Model/Group.h"
-#include "Model/HitAdapter.h"
-#include "Model/HitQuery.h"
-#include "Model/PickResult.h"
-#include "Renderer/RenderContext.h"
 #include "View/Grid.h"
 #include "View/InputState.h"
 #include "View/MapDocument.h"
@@ -90,8 +84,8 @@ namespace TrenchBroom {
             return inputState.modifierKeysDown(ModifierKeys::MKCtrlCmd);
         }
 
-        wxWindow* MoveObjectsTool::doCreatePage(wxWindow* parent) {
-            return new MoveObjectsToolPage(parent, m_document);
+        QWidget* MoveObjectsTool::doCreatePage(QWidget* parent) {
+            return new MoveObjectsToolPage(m_document, parent);
         }
     }
 }

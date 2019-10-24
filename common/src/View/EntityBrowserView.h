@@ -21,9 +21,9 @@
 #define TrenchBroom_EntityBrowserView
 
 #include "Assets/EntityDefinitionManager.h"
+#include "Renderer/FontDescriptor.h"
 #include "Renderer/GLVertexType.h"
 #include "View/CellView.h"
-#include "View/ViewTypes.h"
 
 #include <vecmath/forward.h>
 #include <vecmath/quat.h>
@@ -60,7 +60,8 @@ namespace TrenchBroom {
             EntityCellData(const Assets::PointEntityDefinition* i_entityDefinition, EntityRenderer* i_modelRenderer, const Renderer::FontDescriptor& i_fontDescriptor, const vm::bbox3f& i_bounds);
         };
 
-        class EntityBrowserView : public CellView<EntityCellData, EntityGroupData> {
+        class EntityBrowserView : public CellView {
+            Q_OBJECT
         private:
             using EntityRenderer = Renderer::TexturedRenderer;
 
@@ -77,8 +78,7 @@ namespace TrenchBroom {
             Assets::EntityDefinition::SortOrder m_sortOrder;
             String m_filterText;
         public:
-            EntityBrowserView(wxWindow* parent,
-                              wxScrollBar* scrollBar,
+            EntityBrowserView(QScrollBar* scrollBar,
                               GLContextManager& contextManager,
                               Assets::EntityDefinitionManager& entityDefinitionManager,
                               Assets::EntityModelManager& entityModelManager,
@@ -96,9 +96,7 @@ namespace TrenchBroom {
             void doReloadLayout(Layout& layout) override;
 
             bool dndEnabled() override;
-            void dndWillStart() override;
-            void dndDidEnd() override;
-            wxString dndData(const Layout::Group::Row::Cell& cell) override;
+            QString dndData(const Cell& cell) override;
 
             void addEntityToLayout(Layout& layout, const Assets::PointEntityDefinition* definition, const Renderer::FontDescriptor& font);
 
@@ -116,9 +114,11 @@ namespace TrenchBroom {
             void renderStrings(Layout& layout, float y, float height);
             StringMap collectStringVertices(Layout& layout, float y, float height);
 
-            vm::mat4x4f itemTransformation(const Layout::Group::Row::Cell& cell, float y, float height) const;
+            vm::mat4x4f itemTransformation(const Cell& cell, float y, float height) const;
 
-            wxString tooltip(const Layout::Group::Row::Cell& cell) override;
+            QString tooltip(const Cell& cell) override;
+
+            const EntityCellData& cellData(const Cell& cell) const;
         };
     }
 }

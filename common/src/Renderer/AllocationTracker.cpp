@@ -19,9 +19,9 @@
 
 #include "AllocationTracker.h"
 
-#include <exception>
 #include <cassert>
 #include <algorithm>
+#include <stdexcept>
 
 //#define EXPENSIVE_CHECKS
 

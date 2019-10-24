@@ -19,6 +19,7 @@
 
 #include "TextureBrowserView.h"
 
+#include "CollectionUtils.h"
 #include "StepIterator.h"
 #include "Renderer/GL.h"
 #include "PreferenceManager.h"
@@ -29,63 +30,78 @@
 #include "Renderer/Shaders.h"
 #include "Renderer/ShaderManager.h"
 #include "Renderer/TextureFont.h"
+#include "Renderer/Transformation.h"
 #include "Renderer/VertexArray.h"
-#include "View/TextureSelectedCommand.h"
+#include "StringUtils.h"
+#include "View/MapDocument.h"
 
 #include <vecmath/vec.h>
 #include <vecmath/mat.h>
 #include <vecmath/mat_ext.h>
 
+#include <QTextStream>
+#include <QMenu>
+
+// allow storing std::shared_ptr in QVariant
+Q_DECLARE_METATYPE(std::shared_ptr<TrenchBroom::View::TextureCellData>)
+
 namespace TrenchBroom {
     namespace View {
-        TextureBrowserView::TextureBrowserView(wxWindow* parent,
-                                               wxScrollBar* scrollBar,
+        TextureBrowserView::TextureBrowserView(QScrollBar* scrollBar,
                                                GLContextManager& contextManager,
-                                               Assets::TextureManager& textureManager) :
-        CellView(parent, contextManager, GLAttribs::attribs(), scrollBar),
-        m_textureManager(textureManager),
+                                               MapDocumentWPtr document) :
+        CellView(contextManager, scrollBar),
+        m_document(document),
         m_group(false),
         m_hideUnused(false),
         m_sortOrder(SO_Name),
         m_selectedTexture(nullptr) {
-            m_textureManager.usageCountDidChange.addObserver(this, &TextureBrowserView::usageCountDidChange);
+            MapDocumentSPtr doc = lock(m_document);
+            doc->textureManager().usageCountDidChange.addObserver(this, &TextureBrowserView::usageCountDidChange);
         }
 
         TextureBrowserView::~TextureBrowserView() {
-            m_textureManager.usageCountDidChange.removeObserver(this, &TextureBrowserView::usageCountDidChange);
+            if (!expired(m_document)) {
+                MapDocumentSPtr doc = lock(m_document);
+                doc->textureManager().usageCountDidChange.removeObserver(this, &TextureBrowserView::usageCountDidChange);
+            }
             clear();
         }
 
         void TextureBrowserView::setSortOrder(const SortOrder sortOrder) {
-            if (sortOrder == m_sortOrder)
+            if (sortOrder == m_sortOrder) {
                 return;
+            }
             m_sortOrder = sortOrder;
             invalidate();
-            Refresh();
+            update();
         }
 
         void TextureBrowserView::setGroup(const bool group) {
-            if (group == m_group)
+            if (group == m_group) {
                 return;
+            }
             m_group = group;
             invalidate();
-            Refresh();
+            update();
         }
 
         void TextureBrowserView::setHideUnused(const bool hideUnused) {
-            if (hideUnused == m_hideUnused)
+            if (hideUnused == m_hideUnused) {
                 return;
+            }
             m_hideUnused = hideUnused;
             invalidate();
-            Refresh();
+            update();
         }
 
         void TextureBrowserView::setFilterText(const String& filterText) {
-            if (filterText == m_filterText)
+            if (filterText == m_filterText) {
                 return;
+            }
             m_filterText = filterText;
             invalidate();
-            Refresh();
+            update();
         }
 
         Assets::Texture* TextureBrowserView::selectedTexture() const {
@@ -93,15 +109,16 @@ namespace TrenchBroom {
         }
 
         void TextureBrowserView::setSelectedTexture(Assets::Texture* selectedTexture) {
-            if (m_selectedTexture == selectedTexture)
+            if (m_selectedTexture == selectedTexture) {
                 return;
+            }
             m_selectedTexture = selectedTexture;
-            Refresh();
+            update();
         }
 
         void TextureBrowserView::usageCountDidChange() {
             invalidate();
-            Refresh();
+            update();
         }
 
         void TextureBrowserView::doInitLayout(Layout& layout) {
@@ -154,7 +171,7 @@ namespace TrenchBroom {
             const size_t scaledTextureWidth = static_cast<size_t>(vm::round(scaleFactor * static_cast<float>(texture->width())));
             const size_t scaledTextureHeight = static_cast<size_t>(vm::round(scaleFactor * static_cast<float>(texture->height())));
 
-            layout.addItem(TextureCellData{
+            auto data = std::shared_ptr<TextureCellData>(new TextureCellData{
                 texture,
                 textureName,
                 groupName,
@@ -162,7 +179,9 @@ namespace TrenchBroom {
                 vm::vec2f((maxCellWidth - groupNameSize.x()) / 2.0f, 1.0f),
                 textureFont,
                 groupFont
-            },
+            });
+
+            layout.addItem(QVariant::fromValue(data),
             scaledTextureWidth,
             scaledTextureHeight,
             maxCellWidth,
@@ -210,7 +229,8 @@ namespace TrenchBroom {
         };
 
         Assets::TextureCollectionList TextureBrowserView::getCollections() const {
-            Assets::TextureCollectionList collections = m_textureManager.collections();
+            MapDocumentSPtr doc = lock(m_document);
+            Assets::TextureCollectionList collections = doc->textureManager().collections();
             if (m_hideUnused)
                 VectorUtils::eraseIf(collections, MatchUsageCount());
             if (m_sortOrder == SO_Usage)
@@ -226,7 +246,8 @@ namespace TrenchBroom {
         }
 
         Assets::TextureList TextureBrowserView::getTextures() const {
-            Assets::TextureList textures = m_textureManager.textures();
+            MapDocumentSPtr doc = lock(m_document);
+            Assets::TextureList textures = doc->textureManager().textures();
             filterTextures(textures);
             sortTextures(textures);
             return textures;
@@ -253,15 +274,16 @@ namespace TrenchBroom {
         void TextureBrowserView::doClear() {}
 
         void TextureBrowserView::doRender(Layout& layout, const float y, const float height) {
-            m_textureManager.commitChanges();
+            MapDocumentSPtr doc = lock(m_document);
+            doc->textureManager().commitChanges();
 
-            const float viewLeft      = static_cast<float>(GetClientRect().GetLeft());
-            const float viewTop       = static_cast<float>(GetClientRect().GetBottom());
-            const float viewRight     = static_cast<float>(GetClientRect().GetRight());
-            const float viewBottom    = static_cast<float>(GetClientRect().GetTop());
+            const float viewLeft      = static_cast<float>(0);
+            const float viewTop       = static_cast<float>(size().height());
+            const float viewRight     = static_cast<float>(size().width());
+            const float viewBottom    = static_cast<float>(0);
 
-            const vm::mat4x4f projection = vm::orthoMatrix(-1.0f, 1.0f, viewLeft, viewTop, viewRight, viewBottom);
-            const vm::mat4x4f view = vm::viewMatrix(vm::vec3f::neg_z, vm::vec3f::pos_y) * translationMatrix(vm::vec3f(0.0f, 0.0f, 0.1f));
+            const vm::mat4x4f projection = vm::ortho_matrix(-1.0f, 1.0f, viewLeft, viewTop, viewRight, viewBottom);
+            const vm::mat4x4f view = vm::view_matrix(vm::vec3f::neg_z(), vm::vec3f::pos_y()) *vm::translation_matrix(vm::vec3f(0.0f, 0.0f, 0.1f));
             const Renderer::Transformation transformation(projection, view);
 
             Renderer::ActivateVbo activate(vertexVbo());
@@ -283,15 +305,15 @@ namespace TrenchBroom {
             BoundsVertex::List vertices;
 
             for (size_t i = 0; i < layout.size(); ++i) {
-                const Layout::Group& group = layout[i];
+                const Group& group = layout[i];
                 if (group.intersectsY(y, height)) {
                     for (size_t j = 0; j < group.size(); ++j) {
-                        const Layout::Group::Row& row = group[j];
+                        const Row& row = group[j];
                         if (row.intersectsY(y, height)) {
                             for (size_t k = 0; k < row.size(); ++k) {
-                                const Layout::Group::Row::Cell& cell = row[k];
+                                const Cell& cell = row[k];
                                 const LayoutBounds& bounds = cell.itemBounds();
-                                const Assets::Texture* texture = cell.item().texture;
+                                const Assets::Texture* texture = cellData(cell).texture;
                                 const Color& color = textureColor(*texture);
                                 vertices.emplace_back(vm::vec2f(bounds.left() - 2.0f, height - (bounds.top() - 2.0f - y)), color);
                                 vertices.emplace_back(vm::vec2f(bounds.left() - 2.0f, height - (bounds.bottom() + 2.0f - y)), color);
@@ -332,15 +354,15 @@ namespace TrenchBroom {
             Renderer::ActivateVbo activate(vertexVbo());
 
             for (size_t i = 0; i < layout.size(); ++i) {
-                const Layout::Group& group = layout[i];
+                const Group& group = layout[i];
                 if (group.intersectsY(y, height)) {
                     for (size_t j = 0; j < group.size(); ++j) {
-                        const Layout::Group::Row& row = group[j];
+                        const Row& row = group[j];
                         if (row.intersectsY(y, height)) {
                             for (size_t k = 0; k < row.size(); ++k) {
-                                const Layout::Group::Row::Cell& cell = row[k];
+                                const Cell& cell = row[k];
                                 const LayoutBounds& bounds = cell.itemBounds();
-                                const Assets::Texture* texture = cell.item().texture;
+                                const Assets::Texture* texture = cellData(cell).texture;
 
                                 Renderer::VertexArray vertexArray = Renderer::VertexArray::move(TextureVertex::List({
                                     TextureVertex(vm::vec2f(bounds.left(),  height - (bounds.top() - y)),    vm::vec2f(0.0f, 0.0f)),
@@ -375,7 +397,7 @@ namespace TrenchBroom {
             Vertex::List vertices;
 
             for (size_t i = 0; i < layout.size(); ++i) {
-                const Layout::Group& group = layout[i];
+                const Group& group = layout[i];
                 if (group.intersectsY(y, height)) {
                     const LayoutBounds titleBounds = layout.titleBoundsForVisibleRect(group, y, height);
                     vertices.push_back(Vertex(vm::vec2f(titleBounds.left(), height - (titleBounds.top() - y))));
@@ -455,17 +477,17 @@ namespace TrenchBroom {
                             for (unsigned int k = 0; k < row.size(); k++) {
                                 const auto& cell = row[k];
                                 const auto titleBounds = cell.titleBounds();
-                                const auto& textureFont = fontManager().font(cell.item().mainTitleFont);
-                                const auto& groupFont   = fontManager().font(cell.item().subTitleFont);
+                                const auto& textureFont = fontManager().font(cellData(cell).mainTitleFont);
+                                const auto& groupFont   = fontManager().font(cellData(cell).subTitleFont);
 
                                 // y is relative to top, but OpenGL coords are relative to bottom, so invert
                                 const auto titleOffset = vm::vec2f(titleBounds.left(), y + height - titleBounds.bottom());
 
-                                const auto textureNameOffset = titleOffset + cell.item().mainTitleOffset;
-                                const auto groupNameOffset   = titleOffset + cell.item().subTitleOffset;
+                                const auto textureNameOffset = titleOffset + cellData(cell).mainTitleOffset;
+                                const auto groupNameOffset   = titleOffset + cellData(cell).subTitleOffset;
 
-                                const auto& textureName = cell.item().mainTitle;
-                                const auto& groupName   = cell.item().subTitle;
+                                const auto& textureName = cellData(cell).mainTitle;
+                                const auto& groupName   = cellData(cell).subTitle;
 
                                 const auto textureNameQuads = textureFont.quads(textureName, false, textureNameOffset);
                                 const auto groupNameQuads   = groupFont.quads(groupName, false, groupNameOffset);
@@ -482,8 +504,8 @@ namespace TrenchBroom {
                                     stepIterator(std::begin(groupNameQuads), std::end(groupNameQuads), 1, 2),
                                     stepIterator(std::begin(subTextColor), std::end(subTextColor), 0, 0));
 
-                                VectorUtils::append(stringVertices[cell.item().mainTitleFont], textureNameVertices);
-                                VectorUtils::append(stringVertices[cell.item().subTitleFont], groupNameVertices);
+                                VectorUtils::append(stringVertices[cellData(cell).mainTitleFont], textureNameVertices);
+                                VectorUtils::append(stringVertices[cellData(cell).subTitleFont], groupNameVertices);
                             }
                         }
                     }
@@ -494,30 +516,50 @@ namespace TrenchBroom {
         }
 
         void TextureBrowserView::doLeftClick(Layout& layout, const float x, const float y) {
-            const Layout::Group::Row::Cell* result = nullptr;
+            const Cell* result = nullptr;
             if (layout.cellAt(x, y, &result)) {
-                if (!result->item().texture->overridden()) {
-                    auto* texture = result->item().texture;
+                if (!cellData(*result).texture->overridden()) {
+                    auto* texture = cellData(*result).texture;
 
-                    TextureSelectedCommand command;
-                    command.SetEventObject(this);
-                    command.SetId(GetId());
-                    command.setTexture(texture);
-                    ProcessEvent(command);
+                    // NOTE: wx had the ability for the textureSelected event to veto the selection, but it
+                    // wasn't used.
+                    setSelectedTexture(texture);
 
-                    if (command.IsAllowed())
-                        setSelectedTexture(texture);
+                    emit textureSelected(texture);
 
-                    Refresh();
+                    update();
                 }
             }
         }
 
-        wxString TextureBrowserView::tooltip(const Layout::Group::Row::Cell& cell) {
-            wxString tooltip;
-            tooltip << cell.item().texture->name() << "\n";
-            tooltip << cell.item().texture->width() << "x" << cell.item().texture->height();
+        QString TextureBrowserView::tooltip(const Cell& cell) {
+            QString tooltip;
+            QTextStream ss(&tooltip);
+            ss << QString::fromStdString(cellData(cell).texture->name()) << "\n";
+            ss << cellData(cell).texture->width() << "x" << cellData(cell).texture->height();
             return tooltip;
+        }
+
+        void TextureBrowserView::doContextMenu(Layout& layout, float x, float y, QContextMenuEvent* event) {
+            const Cell* result = nullptr;
+            if (layout.cellAt(x, y, &result)) {
+                if (!cellData(*result).texture->overridden()) {
+                    auto* texture = cellData(*result).texture;
+
+                    QMenu menu(this);
+                    menu.addAction(tr("Select Faces"), this, [=]() {
+                        MapDocumentSPtr doc = lock(m_document);
+                        doc->selectFacesWithTexture(texture);
+                    });
+                    menu.exec(event->globalPos());
+                }
+            }
+        }
+
+        const TextureCellData& TextureBrowserView::cellData(const Cell& cell) const {
+            QVariant any = cell.item();
+            auto ptr = any.value<std::shared_ptr<TextureCellData>>();
+            return *ptr;
         }
     }
 }

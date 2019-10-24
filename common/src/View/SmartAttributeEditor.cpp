@@ -23,34 +23,28 @@
 #include "Model/Object.h"
 #include "View/MapDocument.h"
 
-#include <wx/window.h>
-
 namespace TrenchBroom {
     namespace View {
-        SmartAttributeEditor::SmartAttributeEditor(View::MapDocumentWPtr document) :
+        SmartAttributeEditor::SmartAttributeEditor(View::MapDocumentWPtr document, QWidget* parent) :
+        QWidget(parent),
         m_document(document),
         m_active(false) {}
 
         SmartAttributeEditor::~SmartAttributeEditor() {}
 
-        wxWindow* SmartAttributeEditor::activate(wxWindow* parent, const Model::AttributeName& name) {
+        void SmartAttributeEditor::activate(const Model::AttributeName& name) {
             assert(!m_active);
-
             m_name = name;
-
-            wxWindow* visual = createVisual(parent);
             m_active = true;
-            return visual;
         }
 
         void SmartAttributeEditor::update(const Model::AttributableNodeList& attributables) {
             m_attributables = attributables;
-            updateVisual(m_attributables);
+            doUpdateVisual(m_attributables);
         }
 
         void SmartAttributeEditor::deactivate() {
             m_active = false;
-            destroyVisual();
             m_name = "";
         }
 
@@ -73,17 +67,6 @@ namespace TrenchBroom {
         void SmartAttributeEditor::addOrUpdateAttribute(const Model::AttributeValue& value) {
             assert(m_active);
             document()->setAttribute(m_name, value);
-        }
-        wxWindow* SmartAttributeEditor::createVisual(wxWindow* parent) {
-            return doCreateVisual(parent);
-        }
-
-        void SmartAttributeEditor::destroyVisual() {
-            doDestroyVisual();
-        }
-
-        void SmartAttributeEditor::updateVisual(const Model::AttributableNodeList& attributables) {
-            doUpdateVisual(attributables);
         }
     }
 }

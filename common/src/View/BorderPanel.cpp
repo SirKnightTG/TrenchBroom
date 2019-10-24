@@ -19,56 +19,36 @@
 
 #include "BorderPanel.h"
 
-#include "View/ViewConstants.h"
+#include <QPainter>
 
-#include <wx/dcbuffer.h>
+#include "View/ViewConstants.h"
 
 namespace TrenchBroom {
     namespace View {
-        wxIMPLEMENT_DYNAMIC_CLASS(BorderPanel, wxPanel)
+        BorderPanel::BorderPanel(const Sides borders, const int thickness, QWidget* parent) :
+        QWidget(parent),
+        m_borders(borders),
+        m_thickness(thickness) {}
 
-        BorderPanel::BorderPanel() :
-        wxPanel(),
-        m_borders(0),
-        m_thickness(1) {}
+        void BorderPanel::paintEvent(QPaintEvent* /*event*/) {
+            QPainter painter(this);
 
-        BorderPanel::BorderPanel(wxWindow* parent, const int borders, const int thickness) :
-        wxPanel(),
-        m_borders(0),
-        m_thickness(1) {
-            Create(parent, borders, thickness);
-        }
+            painter.fillRect(this->rect(), palette().color(backgroundRole()));
+            painter.setPen(Colors::borderColor());
 
-        BorderPanel::~BorderPanel() {}
-
-        void BorderPanel::Create(wxWindow* parent, int borders, int thickness) {
-            wxPanel::Create(parent);
-            m_borders = borders;
-            m_thickness = thickness;
-            SetBackgroundStyle(wxBG_STYLE_PAINT);
-            Bind(wxEVT_PAINT, &BorderPanel::OnPaint, this);
-        }
-
-        void BorderPanel::OnPaint(wxPaintEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            wxAutoBufferedPaintDC dc(this);
-            dc.SetPen(wxPen(GetBackgroundColour()));
-            dc.SetBrush(wxBrush(GetBackgroundColour()));
-            dc.DrawRectangle(GetClientRect());
-
-            dc.SetPen(wxPen(Colors::borderColor()));
-
-            wxRect rect = GetClientRect();
-            if ((m_borders & wxLEFT) != 0)
-                dc.DrawLine(rect.GetLeft(), rect.GetTop(), rect.GetLeft(), rect.GetBottom());
-            if ((m_borders & wxTOP) != 0)
-                dc.DrawLine(rect.GetLeft(), rect.GetTop(), rect.GetRight(), rect.GetTop());
-            if ((m_borders & wxRIGHT) != 0)
-                dc.DrawLine(rect.GetRight(), rect.GetTop(), rect.GetRight(), rect.GetBottom());
-            if ((m_borders & wxBOTTOM) != 0)
-                dc.DrawLine(rect.GetLeft(), rect.GetBottom(), rect.GetRight(), rect.GetBottom());
-            event.Skip();
+            QRect r = rect();
+            if ((m_borders & LeftSide) != 0) {
+                painter.drawLine(r.left(), r.top(), r.left(), r.bottom());
+            }
+            if ((m_borders & TopSide) != 0) {
+                painter.drawLine(r.left(), r.top(), r.right(), r.top());
+            }
+            if ((m_borders & RightSide) != 0) {
+                painter.drawLine(r.right(), r.top(), r.right(), r.bottom());
+            }
+            if ((m_borders & BottomSide) != 0) {
+                painter.drawLine(r.left(), r.bottom(), r.right(), r.bottom());
+            }
         }
     }
 }

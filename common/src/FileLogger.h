@@ -40,7 +40,7 @@ namespace TrenchBroom {
         static FileLogger& instance();
     private:
         void doLog(LogLevel level, const String& message) override;
-        void doLog(LogLevel level, const wxString& message) override;
+        void doLog(LogLevel level, const QString& message) override;
 
         deleteCopyAndMove(FileLogger)
     };

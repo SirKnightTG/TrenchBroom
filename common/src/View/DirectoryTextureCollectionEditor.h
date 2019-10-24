@@ -23,30 +23,40 @@
 #include "IO/Path.h"
 #include "View/ViewTypes.h"
 
-#include <wx/panel.h>
+#include <QWidget>
 
-class wxListBox;
+class QListWidget;
+class QAbstractButton;
 
 namespace TrenchBroom {
     namespace View {
-        class DirectoryTextureCollectionEditor : public wxPanel {
+        class DirectoryTextureCollectionEditor : public QWidget {
+            Q_OBJECT
         private:
             MapDocumentWPtr m_document;
 
-            wxListBox* m_availableCollectionsList;
-            wxListBox* m_enabledCollectionsList;
+            QListWidget* m_availableCollectionsList;
+            QListWidget* m_enabledCollectionsList;
+
+            QAbstractButton* m_addCollectionsButton;
+            QAbstractButton* m_removeCollectionsButton;
+            QAbstractButton* m_reloadCollectionsButton;
         public:
-            DirectoryTextureCollectionEditor(wxWindow* parent, MapDocumentWPtr document);
-			~DirectoryTextureCollectionEditor();
+            explicit DirectoryTextureCollectionEditor(MapDocumentWPtr document, QWidget* parent = nullptr);
+            ~DirectoryTextureCollectionEditor() override;
         private:
-            void OnAddTextureCollections(wxCommandEvent& event);
-            void OnRemoveTextureCollections(wxCommandEvent& event);
-            void OnReloadTextureCollections(wxCommandEvent& event);
-            void OnUpdateAddTextureCollections(wxUpdateUIEvent& event);
-            void OnUpdateRemoveTextureCollections(wxUpdateUIEvent& event);
-            void OnUpdateReloadTextureCollections(wxUpdateUIEvent& event);
+            void addSelectedTextureCollections();
+            void removeSelectedTextureCollections();
+            void reloadTextureCollections();
+            void availableTextureCollectionSelectionChanged();
+            void enabledTextureCollectionSelectionChanged();
+
+            bool canAddTextureCollections() const;
+            bool canRemoveTextureCollections() const;
+            bool canReloadTextureCollections() const;
         private:
             void createGui();
+            void updateButtons();
 
             void bindObservers();
             void unbindObservers();
@@ -55,10 +65,10 @@ namespace TrenchBroom {
             void modsDidChange();
             void preferenceDidChange(const IO::Path& path);
 
-            void update();
+            void updateAllTextureCollections();
             void updateAvailableTextureCollections();
             void updateEnabledTextureCollections();
-            void updateListBox(wxListBox* box, const IO::Path::List& paths);
+            void updateListBox(QListWidget* box, const IO::Path::List& paths);
 
             IO::Path::List availableTextureCollections() const;
             IO::Path::List enabledTextureCollections() const;

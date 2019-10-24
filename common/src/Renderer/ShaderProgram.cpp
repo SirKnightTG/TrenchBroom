@@ -26,6 +26,8 @@
 #include <vecmath/vec.h>
 #include <vecmath/mat.h>
 
+#include <memory>
+
 namespace TrenchBroom {
     namespace Renderer {
         ShaderProgram::ShaderProgram(const String& name) :
@@ -90,13 +92,8 @@ namespace TrenchBroom {
         }
 
         void ShaderProgram::set(const String& name, const double value) {
-            /* FIXME using glUniform1d gives undefined references on Linux and Windows builds
             assert(checkActive());
-            glUniform1d(findUniformLocation(name), value);
-            assert(glGetError() == GL_NO_ERROR);
-             */
-
-            set(name, static_cast<float>(value));
+            glAssert(glUniform1d(findUniformLocation(name), value));
         }
 
         void ShaderProgram::set(const String& name, const vm::vec2f& value) {
@@ -142,12 +139,11 @@ namespace TrenchBroom {
                 GLint infoLogLength = 0;
                 glAssert(glGetProgramiv(m_programId, GL_INFO_LOG_LENGTH, &infoLogLength));
                 if (infoLogLength > 0) {
-                    char* infoLog = new char[static_cast<size_t>(infoLogLength)];
-                    glAssert(glGetProgramInfoLog(m_programId, infoLogLength, &infoLogLength, infoLog));
-                    infoLog[infoLogLength-1] = 0;
+                    auto infoLog = std::make_unique<char[]>(static_cast<size_t>(infoLogLength));
+                    glAssert(glGetProgramInfoLog(m_programId, infoLogLength, &infoLogLength, infoLog.get()));
+                    infoLog[static_cast<size_t>(infoLogLength-1)] = 0;
 
-                    ex << infoLog;
-                    delete [] infoLog;
+                    ex << infoLog.get();
                 } else {
                     ex << "Unknown error";
                 }
@@ -160,11 +156,13 @@ namespace TrenchBroom {
         }
 
         GLint ShaderProgram::findUniformLocation(const String& name) const {
-            UniformVariableCache::iterator it = m_variableCache.find(name);
+            auto it = m_variableCache.find(name);
             if (it == std::end(m_variableCache)) {
-                const GLint index = glGetUniformLocation(m_programId, name.c_str());
-                if (index == -1)
+                GLint index = -1;
+                glAssert(index = glGetUniformLocation(m_programId, name.c_str()));
+                if (index == -1) {
                     throw RenderException("Location of uniform variable '" + name + "' could not be found in shader program " + m_name);
+                }
 
                 m_variableCache[name] = index;
                 return index;

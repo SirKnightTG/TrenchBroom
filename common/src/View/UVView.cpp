@@ -35,7 +35,6 @@
 #include "Renderer/Vbo.h"
 #include "Renderer/VertexArray.h"
 #include "Renderer/GLVertexType.h"
-#include "View/GLAttribs.h"
 #include "View/Grid.h"
 #include "View/MapDocument.h"
 #include "View/UVCameraTool.h"
@@ -47,19 +46,17 @@
 
 #include <algorithm>
 #include <cassert>
-#include <iostream>
 #include <iterator>
 
 namespace TrenchBroom {
     namespace View {
         const Model::Hit::HitType UVView::FaceHit = Model::Hit::freeHitType();
 
-        UVView::UVView(wxWindow* parent, MapDocumentWPtr document, GLContextManager& contextManager) :
-        RenderView(parent, contextManager, GLAttribs::attribs()),
+        UVView::UVView(MapDocumentWPtr document, GLContextManager& contextManager) :
+        RenderView(contextManager),
         m_document(document),
         m_helper(m_camera) {
             setToolBox(m_toolBox);
-            m_toolBox.setClickToActivate(false);
             createTools();
             m_toolBox.disable();
             bindObservers();
@@ -71,7 +68,7 @@ namespace TrenchBroom {
 
         void UVView::setSubDivisions(const vm::vec2i& subDivisions) {
             m_helper.setSubDivisions(subDivisions);
-            Refresh();
+            update();
         }
 
         void UVView::createTools() {
@@ -116,42 +113,45 @@ namespace TrenchBroom {
         void UVView::selectionDidChange(const Selection& selection) {
             MapDocumentSPtr document = lock(m_document);
             const Model::BrushFaceList& faces = document->selectedBrushFaces();
-            if (faces.size() != 1)
+            if (faces.size() != 1) {
                 m_helper.setFace(nullptr);
-            else
+            } else {
                 m_helper.setFace(faces.back());
+            }
 
-            if (m_helper.valid())
+            if (m_helper.valid()) {
                 m_toolBox.enable();
-            else
+            } else {
                 m_toolBox.disable();
-            Refresh();
+            }
+
+            update();
         }
 
         void UVView::documentWasCleared(MapDocument* document) {
             m_helper.setFace(nullptr);
             m_toolBox.disable();
-            Refresh();
+            update();
         }
 
         void UVView::nodesDidChange(const Model::NodeList& nodes) {
-            Refresh();
+            update();
         }
 
         void UVView::brushFacesDidChange(const Model::BrushFaceList& faces) {
-            Refresh();
+            update();
         }
 
         void UVView::gridDidChange() {
-            Refresh();
+            update();
         }
 
         void UVView::preferenceDidChange(const IO::Path& path) {
-            Refresh();
+            update();
         }
 
         void UVView::cameraDidChange(const Renderer::Camera* camera) {
-            Refresh();
+            update();
         }
 
         void UVView::doUpdateViewport(int x, int y, int width, int height) {
@@ -184,13 +184,13 @@ namespace TrenchBroom {
 
         void UVView::setupGL(Renderer::RenderContext& renderContext) {
             const Renderer::Camera::Viewport& viewport = renderContext.camera().viewport();
-            glAssert(glViewport(viewport.x, viewport.y, viewport.width, viewport.height));
+            glAssert(glViewport(viewport.x, viewport.y, viewport.width, viewport.height))
 
-            glAssert(glEnable(GL_MULTISAMPLE));
-            glAssert(glEnable(GL_BLEND));
-            glAssert(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-            glAssert(glShadeModel(GL_SMOOTH));
-            glAssert(glDisable(GL_DEPTH_TEST));
+            glAssert(glEnable(GL_MULTISAMPLE))
+            glAssert(glEnable(GL_BLEND))
+            glAssert(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA))
+            glAssert(glShadeModel(GL_SMOOTH))
+            glAssert(glDisable(GL_DEPTH_TEST))
         }
 
         class UVView::RenderTexture : public Renderer::DirectRenderable {
@@ -341,8 +341,8 @@ namespace TrenchBroom {
 
             Model::BrushFace* face = m_helper.face();
             const FloatType distance = face->intersectWithRay(pickRay);
-            if (!vm::isnan(distance)) {
-                const vm::vec3 hitPoint = pickRay.pointAtDistance(distance);
+            if (!vm::is_nan(distance)) {
+                const vm::vec3 hitPoint = vm::point_at_distance(pickRay, distance);
                 pickResult.addHit(Model::Hit(UVView::FaceHit, distance, hitPoint, face));
             }
             return pickResult;

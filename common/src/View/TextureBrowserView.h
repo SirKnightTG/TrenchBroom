@@ -20,17 +20,17 @@
 #ifndef TrenchBroom_TextureBrowserView
 #define TrenchBroom_TextureBrowserView
 
-#include "StringUtils.h"
+#include "StringType.h"
 #include "Assets/TextureManager.h"
 #include "Renderer/FontDescriptor.h"
-#include "Renderer/Vbo.h"
 #include "Renderer/GLVertex.h"
 #include "Renderer/GLVertexType.h"
 #include "View/CellView.h"
+#include "View/ViewTypes.h"
 
 #include <map>
 
-class wxScrollBar;
+class QScrollBar;
 
 namespace TrenchBroom {
     namespace Assets {
@@ -52,7 +52,8 @@ namespace TrenchBroom {
             Renderer::FontDescriptor subTitleFont;
         };
 
-        class TextureBrowserView : public CellView<TextureCellData, TextureGroupData> {
+        class TextureBrowserView : public CellView {
+            Q_OBJECT
         public:
             typedef enum {
                 SO_Name,
@@ -62,8 +63,7 @@ namespace TrenchBroom {
             using TextVertex = Renderer::GLVertexTypes::P2T2C4::Vertex;
             using StringMap = std::map<Renderer::FontDescriptor, TextVertex::List>;
 
-            Assets::TextureManager& m_textureManager;
-
+            MapDocumentWPtr m_document;
             bool m_group;
             bool m_hideUnused;
             SortOrder m_sortOrder;
@@ -71,10 +71,9 @@ namespace TrenchBroom {
 
             Assets::Texture* m_selectedTexture;
         public:
-            TextureBrowserView(wxWindow* parent,
-                               wxScrollBar* scrollBar,
+            TextureBrowserView(QScrollBar* scrollBar,
                                GLContextManager& contextManager,
-                               Assets::TextureManager& textureManager);
+                               MapDocumentWPtr document);
             ~TextureBrowserView() override;
 
             void setSortOrder(SortOrder sortOrder);
@@ -116,7 +115,12 @@ namespace TrenchBroom {
             StringMap collectStringVertices(Layout& layout, float y, float height);
 
             void doLeftClick(Layout& layout, float x, float y) override;
-            wxString tooltip(const Layout::Group::Row::Cell& cell) override;
+            QString tooltip(const Cell& cell) override;
+            void doContextMenu(Layout& layout, float x, float y, QContextMenuEvent* event) override;
+
+            const TextureCellData& cellData(const Cell& cell) const;
+        signals:
+            void textureSelected(Assets::Texture* texture);
         };
     }
 }

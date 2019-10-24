@@ -23,9 +23,7 @@
 #include "PreferenceManager.h"
 #include "Model/Brush.h"
 #include "Model/Entity.h"
-#include "Model/Group.h"
 #include "Model/Hit.h"
-#include "Model/HitAdapter.h"
 #include "Model/HitQuery.h"
 #include "Model/PickResult.h"
 #include "View/InputState.h"
@@ -37,7 +35,6 @@
 #include <vecmath/plane.h>
 #include <vecmath/intersection.h>
 
-#include <iostream>
 #include <algorithm>
 
 namespace TrenchBroom {
@@ -84,15 +81,22 @@ namespace TrenchBroom {
         void CameraTool3D::doMouseScroll(const InputState& inputState) {
             const auto factor = pref(Preferences::CameraMouseWheelInvert) ? -1.0f : 1.0f;
             const auto zoom = inputState.modifierKeysPressed(ModifierKeys::MKShift);
-            const auto scrollDist =
+
+            // Qt switches scroll axis when alt is pressed, but unfortunately, not consistently on all OS'es
+            // and doesn't give any way of knowing.
+            // see: https://bugreports.qt.io/browse/QTBUG-30948
+            const bool swapXY =
 #ifdef __APPLE__
-                zoom ? inputState.scrollX() : inputState.scrollY(); // macOS switches scroll axis when shift is pressed
+                false;
 #else
-                inputState.scrollY();
+                inputState.modifierKeysPressed(ModifierKeys::MKAlt);
 #endif
+            const auto scrollDist =
+                swapXY ? inputState.scrollX() : inputState.scrollY();
+
             if (m_orbit) {
                 const auto orbitPlane = vm::plane3f(m_orbitCenter, m_camera.direction());
-                const auto maxDistance = std::max(vm::intersectRayAndPlane(m_camera.viewRay(), orbitPlane) - 32.0f, 0.0f);
+                const auto maxDistance = std::max(vm::intersect_ray_plane(m_camera.viewRay(), orbitPlane) - 32.0f, 0.0f);
                 const auto distance = std::min(factor * scrollDist * moveSpeed(false), maxDistance);
                 m_camera.moveBy(distance * m_camera.direction());
             } else if (move(inputState)) {

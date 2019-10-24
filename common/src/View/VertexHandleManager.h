@@ -20,15 +20,15 @@
 #ifndef VertexHandleManager_h
 #define VertexHandleManager_h
 
+#include "CollectionUtils.h"
 #include "TrenchBroom.h"
 #include "Model/Brush.h"
 #include "Model/BrushFace.h"
 #include "Model/Hit.h"
 #include "Model/PickResult.h"
 #include "Renderer/Camera.h"
-#include "View/ViewTypes.h"
 
-#include <vecmath/distance.h>
+#include <vecmath/segment.h>
 
 #include <algorithm>
 #include <functional>

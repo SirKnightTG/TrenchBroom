@@ -21,7 +21,7 @@
 
 #include "PreferenceManager.h"
 #include "Preferences.h"
-#include "Polyhedron.h"
+#include "Polyhedron3.h"
 #include "Assets/EntityDefinitionManager.h"
 #include "Assets/EntityModelManager.h"
 #include "Assets/Texture.h"
@@ -40,12 +40,11 @@
 #include "Model/CollectContainedNodesVisitor.h"
 #include "Model/CollectMatchingBrushFacesVisitor.h"
 #include "Model/CollectNodesVisitor.h"
-#include "Model/CollectNodesByVisibilityVisitor.h"
 #include "Model/CollectSelectableNodesVisitor.h"
+#include "Model/CollectSelectableBrushFacesVisitor.h"
 #include "Model/CollectSelectableNodesWithFilePositionVisitor.h"
 #include "Model/CollectSelectedNodesVisitor.h"
 #include "Model/CollectTouchingNodesVisitor.h"
-#include "Model/CollectUniqueNodesVisitor.h"
 #include "Model/ComputeNodeBoundsVisitor.h"
 #include "Model/EditorContext.h"
 #include "Model/EmptyAttributeNameIssueGenerator.h"
@@ -55,7 +54,6 @@
 #include "Model/Entity.h"
 #include "Model/LinkSourceIssueGenerator.h"
 #include "Model/LinkTargetIssueGenerator.h"
-#include "Model/FindLayerVisitor.h"
 #include "Model/Game.h"
 #include "Model/GameFactory.h"
 #include "Model/Group.h"
@@ -80,6 +78,7 @@
 #include "Model/World.h"
 #include "View/AddBrushVerticesCommand.h"
 #include "View/AddRemoveNodesCommand.h"
+#include "View/Actions.h"
 #include "View/ChangeBrushFaceAttributesCommand.h"
 #include "View/ChangeEntityAttributesCommand.h"
 #include "View/UpdateEntitySpawnflagCommand.h"
@@ -111,13 +110,11 @@
 #include "View/SetTextureCollectionsCommand.h"
 #include "View/TransformObjectsCommand.h"
 #include "View/ViewEffectsService.h"
-#include "MapDocument.h"
 
 
 #include <vecmath/util.h>
 
 #include <cassert>
-#include <numeric>
 #include <type_traits>
 
 namespace TrenchBroom {
@@ -245,6 +242,30 @@ namespace TrenchBroom {
             m_viewEffectsService = viewEffectsService;
         }
 
+        void MapDocument::visitTagActions(const ActionVisitor& visitor) const {
+            visitActions(visitor, m_tagActions);
+        }
+
+        void MapDocument::visitEntityDefinitionActions(const ActionVisitor& visitor) const {
+            visitActions(visitor, m_entityDefinitionActions);
+        }
+
+        void MapDocument::createTagActions() {
+            const auto& actionManager = ActionManager::instance();
+            m_tagActions = actionManager.createTagActions(m_tagManager->smartTags());
+        }
+
+        void MapDocument::createEntityDefinitionActions() {
+            const auto& actionManager = ActionManager::instance();
+            m_entityDefinitionActions = actionManager.createEntityDefinitionActions(m_entityDefinitionManager->definitions());
+        }
+
+        void MapDocument::visitActions(const ActionVisitor& visitor, const ActionList& actions) const {
+            for (const auto& action : actions) {
+                visitor(action);
+            }
+        }
+
         void MapDocument::newDocument(const Model::MapFormat mapFormat, const vm::bbox3& worldBounds, Model::GameSPtr game) {
             info("Creating new document");
 
@@ -254,6 +275,7 @@ namespace TrenchBroom {
             loadAssets();
             registerIssueGenerators();
             registerSmartTags();
+            createTagActions();
 
             clearModificationCount();
 
@@ -269,6 +291,7 @@ namespace TrenchBroom {
             loadAssets();
             registerIssueGenerators();
             registerSmartTags();
+            createTagActions();
 
             documentWasLoadedNotifier(this);
         }
@@ -600,6 +623,21 @@ namespace TrenchBroom {
 
         void MapDocument::convertToFaceSelection() {
             submitAndStore(SelectionCommand::convertToFaces());
+        }
+
+        void MapDocument::selectFacesWithTexture(const Assets::Texture* texture) {
+            Model::CollectSelectableBrushFacesVisitor visitor(*m_editorContext, [=](const Model::BrushFace* face) {
+                // FIXME: we shouldn't need this extra check here to prevent hidden brushes from being included; fix it in EditorContext
+                if (face->brush()->hidden()) {
+                    return false;
+                }
+                return face->texture() == texture;
+            });
+            m_world->acceptAndRecurse(visitor);
+
+            Transaction transaction(this, "Select Faces with Texture");
+            deselectAll();
+            select(visitor.faces());
         }
 
         void MapDocument::deselectAll() {
@@ -1454,6 +1492,10 @@ namespace TrenchBroom {
             doRedoNextCommand();
         }
 
+        bool MapDocument::hasRepeatableCommands() const {
+            return doHasRepeatableCommands();
+        }
+
         bool MapDocument::repeatLastCommands() {
             return doRepeatLastCommands();
         }
@@ -1602,6 +1644,8 @@ namespace TrenchBroom {
                 IO::SimpleParserStatus status(logger());
                 m_entityDefinitionManager->loadDefinitions(path, *m_game, status);
                 info("Loaded entity definition file " + path.lastComponent().asString());
+
+                createEntityDefinitionActions();
             } catch (const Exception& e) {
                 if (spec.builtin()) {
                     error("Could not load builtin entity definition file '%s': %s", spec.path().asString().c_str(), e.what());
@@ -1614,6 +1658,7 @@ namespace TrenchBroom {
         void MapDocument::unloadEntityDefinitions() {
             unsetEntityDefinitions();
             m_entityDefinitionManager->clear();
+            m_entityDefinitionActions.clear();
         }
 
         void MapDocument::loadEntityModels() {
@@ -1707,7 +1752,7 @@ namespace TrenchBroom {
         private:
             Assets::EntityDefinitionManager& m_manager;
         public:
-            SetEntityDefinitions(Assets::EntityDefinitionManager& manager) :
+            explicit SetEntityDefinitions(Assets::EntityDefinitionManager& manager) :
             m_manager(manager) {}
         private:
             void doVisit(Model::World* world) override   { handle(world); }

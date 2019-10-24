@@ -20,9 +20,10 @@
 #ifndef TrenchBroom_Path
 #define TrenchBroom_Path
 
-#include "StringUtils.h"
+#include "StringType.h"
+#include "StringList.h"
 
-#include <iostream>
+#include <iosfwd>
 #include <vector>
 
 namespace TrenchBroom {
@@ -31,6 +32,7 @@ namespace TrenchBroom {
         public:
             using List = std::vector<Path>;
             static const List EmptyList;
+            static const Path EmptyPath;
             static char separator();
 
             struct ToString {
@@ -84,6 +86,7 @@ namespace TrenchBroom {
             Path prefix(size_t count) const;
             Path suffix(size_t count) const;
             Path subPath(size_t index, size_t count) const;
+            const StringList& components() const;
 
             String filename() const;
             String basename() const;
@@ -100,6 +103,8 @@ namespace TrenchBroom {
             Path deleteExtension() const;
             Path addExtension(const String& extension) const;
             Path replaceExtension(const String& extension) const;
+
+            Path replaceBasename(const String& basename) const;
 
             bool isAbsolute() const;
             bool canMakeRelative(const Path& absolutePath) const;

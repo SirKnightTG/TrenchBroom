@@ -20,8 +20,6 @@
 #ifndef TrenchBroom_AnimationCurve
 #define TrenchBroom_AnimationCurve
 
-#include <wx/longlong.h>
-
 namespace TrenchBroom {
     namespace View {
         class AnimationCurve {
@@ -41,7 +39,7 @@ namespace TrenchBroom {
         private:
             double m_threshold;
         public:
-            EaseInEaseOutAnimationCurve(const wxLongLong& duration);
+            EaseInEaseOutAnimationCurve(double duration);
             double doApply(double progress) const override;
         };
     }

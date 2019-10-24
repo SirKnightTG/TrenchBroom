@@ -21,11 +21,9 @@
 #define TrenchBroom_Vbo
 
 #include "Macros.h"
-#include "SharedPointer.h"
 #include "Renderer/GL.h"
 
-#include <cassert>
-#include <cstring>
+#include <memory>
 #include <vector>
 
 namespace TrenchBroom {
@@ -64,6 +62,7 @@ namespace TrenchBroom {
             size_t m_totalCapacity;
             size_t m_freeCapacity;
             VboBlockList m_freeBlocks;
+            VboBlockList m_blocksPendingFree;
             VboBlock* m_firstBlock;
             VboBlock* m_lastBlock;
             State m_state;
@@ -89,8 +88,12 @@ namespace TrenchBroom {
             GLenum type() const;
 
             void free();
+            void enqueueBlockForFreeing(VboBlock* block);
             void freeBlock(VboBlock* block);
-
+        public:
+            void freePendingBlocks();
+            
+        private:
             void increaseCapacityToAccomodate(size_t capacity);
             void increaseCapacity(size_t delta);
             VboBlockList::iterator findFreeBlock(size_t minCapacity);

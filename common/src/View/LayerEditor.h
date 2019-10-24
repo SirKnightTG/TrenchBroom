@@ -20,60 +20,62 @@
 #ifndef TrenchBroom_LayerEditor
 #define TrenchBroom_LayerEditor
 
-#include "StringUtils.h"
+#include "StringType.h"
 #include "Model/ModelTypes.h"
 #include "View/ViewTypes.h"
 
-#include <wx/panel.h>
+#include <QWidget>
+
+class QAbstractButton;
 
 namespace TrenchBroom {
     namespace View {
-        class LayerCommand;
         class LayerListBox;
 
-        class LayerEditor : public wxPanel {
+        class LayerEditor : public QWidget {
+            Q_OBJECT
         private:
-            static const int MoveSelectionToLayerCommandId = 1;
-            static const int SelectAllInLayerCommandId = 2;
-            static const int ToggleLayerVisibleCommandId = 3;
-            static const int ToggleLayerLockedCommandId = 4;
-            static const int RemoveLayerCommandId = 5;
-
             MapDocumentWPtr m_document;
             LayerListBox* m_layerList;
+
+            QAbstractButton* m_addLayerButton;
+            QAbstractButton* m_removeLayerButton;
+            QAbstractButton* m_showAllLayersButton;
         public:
-            LayerEditor(wxWindow* parent, MapDocumentWPtr document);
+            LayerEditor(MapDocumentWPtr document, QWidget* parent = nullptr);
         private:
-            void OnSetCurrentLayer(LayerCommand& event);
-            void OnLayerRightClick(LayerCommand& event);
+            void onSetCurrentLayer(Model::Layer* layer);
+            void onLayerRightClick(Model::Layer* layer);
 
             class CollectMoveableNodes;
-            void OnMoveSelectionToLayer(wxCommandEvent& event);
-            void OnUpdateMoveSelectionToLayerUI(wxUpdateUIEvent& event);
+            void onMoveSelectionToLayer();
+            bool canMoveSelectionToLayer() const;
 
-            void OnToggleLayerVisibleFromMenu(wxCommandEvent& event);
-            void OnToggleLayerVisibleFromList(LayerCommand& event);
-            void OnUpdateToggleLayerVisibleUI(wxUpdateUIEvent& event);
+            void onToggleLayerVisibleFromMenu();
+            void onToggleLayerVisibleFromList(Model::Layer* layer);
+            bool canToggleLayerVisible() const;
             void toggleLayerVisible(Model::Layer* layer);
 
-            void OnToggleLayerLockedFromMenu(wxCommandEvent& event);
-            void OnToggleLayerLockedFromList(LayerCommand& event);
-            void OnUpdateToggleLayerLockedUI(wxUpdateUIEvent& event);
+            void onToggleLayerLockedFromMenu();
+            void onToggleLayerLockedFromList(Model::Layer* layer);
+            bool canToggleLayerLocked() const;
             void toggleLayerLocked(Model::Layer* layer);
 
-            void OnSelectAllInLayer(wxCommandEvent& event);
+            void onSelectAllInLayer();
 
-            void OnAddLayer(wxCommandEvent& event);
+            void onAddLayer();
             String queryLayerName();
 
-            void OnRemoveLayer(wxCommandEvent& event);
-            void OnUpdateRemoveLayerUI(wxUpdateUIEvent& event);
+            void onRemoveLayer();
+            bool canRemoveLayer() const;
 
-            void OnShowAllLayers(wxCommandEvent& event);
+            void onShowAllLayers();
         private:
             Model::Layer* findVisibleAndUnlockedLayer(const Model::Layer* except) const;
             void moveSelectedNodesToLayer(MapDocumentSPtr document, Model::Layer* layer);
             void createGui();
+        private slots:
+            void updateButtons();
         };
     }
 }

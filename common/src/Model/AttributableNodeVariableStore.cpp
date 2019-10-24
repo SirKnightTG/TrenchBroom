@@ -19,8 +19,8 @@
 
 #include "AttributableNodeVariableStore.h"
 
-#include <cassert>
 #include "Model/AttributableNode.h"
+#include "StringUtils.h"
 
 namespace TrenchBroom {
     namespace Model {
@@ -38,9 +38,11 @@ namespace TrenchBroom {
         }
 
         EL::Value AttributableNodeVariableStore::doGetValue(const String& name) const {
-            if (!m_node->hasAttribute(name))
+            if (!m_node->hasAttribute(name)) {
                 return EL::Value::Undefined;
-            return EL::Value(m_node->attribute(name));
+            } else {
+                return EL::Value(m_node->attribute(name));
+            }
         }
 
         StringSet AttributableNodeVariableStore::doGetNames() const {
@@ -48,13 +50,16 @@ namespace TrenchBroom {
         }
 
         void AttributableNodeVariableStore::doDeclare(const String& name, const EL::Value& value) {
-            if (m_node->hasAttribute(name))
+            if (m_node->hasAttribute(name)) {
                 throw EL::EvaluationError("Variable '" + name + "' already declared");
-            doAssign(name, value);
+            } else {
+                doAssign(name, value);
+            }
         }
 
         void AttributableNodeVariableStore::doAssign(const String& name, const EL::Value& value) {
-            m_node->addOrUpdateAttribute(name, value.convertTo(EL::Type_String));
+            const EL::Value stringELValue = value.convertTo(EL::Type_String);
+            m_node->addOrUpdateAttribute(name, StringUtils::toString(stringELValue));
         }
     }
 }

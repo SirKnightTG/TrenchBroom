@@ -24,6 +24,7 @@
 #include "Model/Hit.h"
 #include "View/Tool.h"
 #include "View/RotateObjectsHandle.h"
+#include "View/ViewTypes.h"
 
 #include <vector>
 
@@ -82,7 +83,7 @@ namespace TrenchBroom {
         private:
             void updateRecentlyUsedCenters(const vm::vec3& center);
         private:
-            wxWindow* doCreatePage(wxWindow* parent) override;
+            QWidget* doCreatePage(QWidget* parent) override;
         };
     }
 }

@@ -20,9 +20,10 @@
 #ifndef TrenchBroom_GLContextManager
 #define TrenchBroom_GLContextManager
 
-#include "View/GLContext.h"
+#include "Macros.h"
+#include "StringUtils.h"
 
-class wxGLCanvas;
+#include <memory>
 
 namespace TrenchBroom {
     namespace Renderer {
@@ -33,20 +34,24 @@ namespace TrenchBroom {
 
     namespace View {
         class GLContextManager {
+        public:
+            static String GLVendor;
+            static String GLRenderer;
+            static String GLVersion;
         private:
-            GLContext::Ptr m_mainContext;
             bool m_initialized;
 
-            Renderer::Vbo* m_vertexVbo;
-            Renderer::Vbo* m_indexVbo;
-            Renderer::FontManager* m_fontManager;
-            Renderer::ShaderManager* m_shaderManager;
+            String m_glVendor;
+            String m_glRenderer;
+            String m_glVersion;
+
+            std::unique_ptr<Renderer::Vbo> m_vertexVbo;
+            std::unique_ptr<Renderer::Vbo> m_indexVbo;
+            std::unique_ptr<Renderer::FontManager> m_fontManager;
+            std::unique_ptr<Renderer::ShaderManager> m_shaderManager;
         public:
             GLContextManager();
             ~GLContextManager();
-
-            GLContext::Ptr createContext(wxGLCanvas* canvas);
-            wxGLContext* mainContext() const;
 
             bool initialized() const;
             bool initialize();
@@ -55,9 +60,8 @@ namespace TrenchBroom {
             Renderer::Vbo& indexVbo();
             Renderer::FontManager& fontManager();
             Renderer::ShaderManager& shaderManager();
-        private:
-            GLContextManager(const GLContextManager& other);
-            GLContextManager& operator=(const GLContextManager& other);
+
+            deleteCopyAndMove(GLContextManager)
         };
     }
 }

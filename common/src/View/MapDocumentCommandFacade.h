@@ -29,6 +29,8 @@
 #include "View/MapDocument.h"
 #include "View/UndoableCommand.h"
 
+#include <vecmath/segment.h>
+
 namespace TrenchBroom {
     namespace Model {
         class ChangeBrushFaceAttributesRequest;
@@ -129,6 +131,7 @@ namespace TrenchBroom {
             const String& doGetNextCommandName() const override;
             void doUndoLastCommand() override;
             void doRedoNextCommand() override;
+            bool doHasRepeatableCommands() const override;
             bool doRepeatLastCommands() override;
             void doClearRepeatableCommands() override;
 

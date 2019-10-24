@@ -20,7 +20,6 @@
 #ifndef TrenchBroom_ChangeBrushFaceAttributesCommand
 #define TrenchBroom_ChangeBrushFaceAttributesCommand
 
-#include "SharedPointer.h"
 #include "View/DocumentCommand.h"
 #include "Model/ChangeBrushFaceAttributesRequest.h"
 
@@ -41,7 +40,7 @@ namespace TrenchBroom {
         public:
             static Ptr command(const Model::ChangeBrushFaceAttributesRequest& request);
         private:
-            ChangeBrushFaceAttributesCommand(const Model::ChangeBrushFaceAttributesRequest& request);
+            explicit ChangeBrushFaceAttributesCommand(const Model::ChangeBrushFaceAttributesRequest& request);
         public:
             ~ChangeBrushFaceAttributesCommand() override;
         private:

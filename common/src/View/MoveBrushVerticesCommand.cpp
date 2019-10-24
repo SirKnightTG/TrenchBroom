@@ -19,6 +19,8 @@
 
 #include "MoveBrushVerticesCommand.h"
 
+#include "CollectionUtils.h"
+#include "Constants.h"
 #include "Model/Snapshot.h"
 #include "View/MapDocument.h"
 #include "View/MapDocumentCommandFacade.h"
@@ -45,7 +47,7 @@ namespace TrenchBroom {
         m_vertices(vertices),
         m_oldVertexPositions(vertexPositions),
         m_delta(delta) {
-            assert(!isZero(m_delta, vm::C::almostZero()));
+            assert(!vm::is_zero(m_delta, vm::C::almost_zero()));
         }
 
         bool MoveBrushVerticesCommand::doCanDoVertexOperation(const MapDocument* document) const {

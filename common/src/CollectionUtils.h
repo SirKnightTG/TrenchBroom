@@ -20,13 +20,12 @@
 #ifndef TrenchBroom_CollectionUtils_h
 #define TrenchBroom_CollectionUtils_h
 
-#include "Macros.h"
 #include "Ensure.h"
+#include "VectorUtilsMinimal.h"
 
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <cstdarg>
 #include <iterator>
 #include <limits>
 #include <list>
@@ -83,30 +82,6 @@ namespace Utils {
         }
     };
 }
-
-class Bitset {
-private:
-    std::vector<bool> m_bits;
-public:
-    Bitset(const size_t initialSize = 64) :
-    m_bits(initialSize, false) {}
-
-    bool operator[](const size_t index) const {
-        if (index >= m_bits.size())
-            return false;
-        return m_bits[index];
-    }
-
-    std::vector<bool>::reference operator[](const size_t index) {
-        if (index >= m_bits.size())
-            m_bits.insert(std::end(m_bits), index - m_bits.size() + 1, false);
-        return m_bits[index];
-    }
-
-    void reset() {
-        m_bits = std::vector<bool>(64, false);
-    }
-};
 
 namespace CollectionUtils {
     template <typename I, typename C>
@@ -312,13 +287,6 @@ namespace VectorUtils {
         return result;
     }
 
-    template <typename T>
-    void clearToZero(std::vector<T>& vec) {
-        using std::swap;
-        std::vector<T> empty(0);
-        swap(vec, empty);
-    }
-
     template <typename T, typename C>
     int compare(const std::vector<T>& lhs, const std::vector<T>& rhs, const C& cmp) {
         using Vec = std::vector<T>;
@@ -502,12 +470,6 @@ namespace VectorUtils {
     }
 
     template <typename T>
-    void clearAndDelete(std::vector<T*>& vec) {
-        std::for_each(std::begin(vec), std::end(vec), Utils::Deleter<T>());
-        vec.clear();
-    }
-
-    template <typename T>
     void deleteAll(const std::vector<T*>& vec) {
         std::for_each(std::begin(vec), std::end(vec), Utils::Deleter<T>());
     }
@@ -594,12 +556,6 @@ namespace VectorUtils {
         std::vector<T> result;
         concatenate(vec1, vec2, result);
         return result;
-    }
-
-    template <typename T1, typename T2>
-    void append(std::vector<T1>& vec1, const std::vector<T2>& vec2) {
-        vec1.reserve(vec1.size() + vec2.size());
-        vec1.insert(std::end(vec1), std::begin(vec2), std::end(vec2));
     }
 
     template <typename T1, typename T2>

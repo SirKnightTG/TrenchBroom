@@ -18,10 +18,8 @@
  */
 
 #include "Hit.h"
-#include "HitFilter.h"
 
-#include <algorithm>
-#include <limits>
+#include "Ensure.h"
 
 namespace TrenchBroom {
     namespace Model {
@@ -36,7 +34,7 @@ namespace TrenchBroom {
             return 1u << currentShift++;
         }
 
-        const Hit Hit::NoHit = Hit(NoType, 0.0, vm::vec3::zero, false);
+        const Hit Hit::NoHit = Hit(NoType, 0.0, vm::vec3::zero(), false);
 
         bool Hit::isMatch() const {
             return m_type != NoType;

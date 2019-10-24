@@ -19,14 +19,13 @@
 
 #include "RotateObjectsTool.h"
 
+#include "CollectionUtils.h"
 #include "View/Grid.h"
 #include "View/MapDocument.h"
 #include "View/RotateObjectsHandle.h"
 #include "View/RotateObjectsToolPage.h"
 
 #include <vecmath/vec.h>
-#include <vecmath/vec.h>
-#include <vecmath/bbox.h>
 #include <vecmath/bbox.h>
 #include <vecmath/scalar.h>
 
@@ -37,7 +36,7 @@ namespace TrenchBroom {
         m_document(document),
         m_toolPage(nullptr),
         m_handle(),
-        m_angle(vm::toRadians(15.0)) {}
+        m_angle(vm::to_radians(15.0)) {}
 
         bool RotateObjectsTool::doActivate() {
             resetRotationCenter();
@@ -151,9 +150,10 @@ namespace TrenchBroom {
             m_toolPage->setRecentlyUsedCenters(m_recentlyUsedCenters);
         }
 
-        wxWindow* RotateObjectsTool::doCreatePage(wxWindow* parent) {
+        QWidget* RotateObjectsTool::doCreatePage(QWidget* parent) {
             assert(m_toolPage == nullptr);
-            m_toolPage = new RotateObjectsToolPage(parent, m_document, this);
+
+            m_toolPage = new RotateObjectsToolPage(m_document, this, parent);
             return m_toolPage;
         }
     }

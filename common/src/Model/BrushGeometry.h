@@ -24,6 +24,10 @@
 #include "Polyhedron.h"
 #include "Polyhedron_BrushGeometryPayload.h"
 #include "Polyhedron_DefaultPayload.h"
+#include "Polyhedron_Instantiation.h"
+
+#include <map>
+#include <set>
 
 namespace TrenchBroom {
     namespace Model {
@@ -40,6 +44,10 @@ namespace TrenchBroom {
         using BrushVertexList = BrushGeometry::VertexList;
         using BrushEdgeList = BrushGeometry::EdgeList;
         using BrushHalfEdgeList = BrushGeometry::HalfEdgeList;
+
+        using BrushEdgeSet = std::set<BrushEdge*>;
+
+        using VertexToEdgesMap = std::map<vm::vec3, BrushEdgeSet>;
     }
 }
 

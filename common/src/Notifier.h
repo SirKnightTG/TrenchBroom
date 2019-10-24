@@ -20,10 +20,9 @@
 #ifndef TrenchBroom_Notifier_h
 #define TrenchBroom_Notifier_h
 
-#include "CollectionUtils.h"
-#include "Exceptions.h"
 #include "TemporarilySetAny.h"
 
+#include <algorithm>
 #include <cassert>
 #include <functional>
 #include <list>

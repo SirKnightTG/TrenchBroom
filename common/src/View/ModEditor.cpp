@@ -19,40 +19,36 @@
 
 #include "ModEditor.h"
 
+#include "CollectionUtils.h"
 #include "Notifier.h"
 #include "Preferences.h"
 #include "PreferenceManager.h"
 #include "Model/Entity.h"
 #include "Model/Game.h"
-#include "Model/Object.h"
+#include "StringUtils.h"
 #include "View/BorderLine.h"
 #include "View/MapDocument.h"
 #include "View/TitledPanel.h"
 #include "View/ViewConstants.h"
-#include "View/ViewUtils.h"
 #include "View/wxUtils.h"
 
-#include <wx/bmpbuttn.h>
-#include <wx/gbsizer.h>
-#include <wx/listbox.h>
-#include <wx/settings.h>
-#include <wx/sizer.h>
-#include <wx/srchctrl.h>
-#include <wx/statbox.h>
-#include <wx/stattext.h>
+#include <QLineEdit>
+#include <QListWidget>
+#include <QWidget>
+#include <QAbstractButton>
+#include <QVBoxLayout>
+#include <QGridLayout>
 
 #include <cassert>
 
 namespace TrenchBroom {
     namespace View {
-        ModEditor::ModEditor(wxWindow* parent, MapDocumentWPtr document) :
-        wxPanel(parent),
+        ModEditor::ModEditor(MapDocumentWPtr document, QWidget* parent) :
+        QWidget(parent),
         m_document(document),
         m_availableModList(nullptr),
         m_enabledModList(nullptr),
-        m_filterBox(nullptr),
-        m_ignoreNotifier(false) {
-            InheritAttributes();
+        m_filterBox(nullptr) {
             createGui();
             bindObservers();
         }
@@ -61,204 +57,80 @@ namespace TrenchBroom {
             unbindObservers();
         }
 
-        bool ModEditor::ShouldInheritColours() const {
-            return true;
-        }
-
-        void ModEditor::OnAddModClicked(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            TemporarilySetBool ignoreNotifier(m_ignoreNotifier);
-
-            wxArrayInt selections;
-            m_availableModList->GetSelections(selections);
-            if (selections.empty()) {
-                return;
-            }
-
-            auto document = lock(m_document);
-
-            auto mods = document->mods();
-            for (size_t i = 0; i < selections.size(); ++i) {
-                const auto index = selections[i] - static_cast<int>(i);
-                const auto item = m_availableModList->GetString(static_cast<unsigned int>(index));
-                m_availableModList->Delete(static_cast<unsigned int>(index));
-                m_enabledModList->Append(item);
-
-                mods.push_back(item.ToStdString());
-            }
-
-            m_availableModList->DeselectAll();
-            m_enabledModList->DeselectAll();
-
-            document->setMods(mods);
-        }
-
-        void ModEditor::OnRemoveModClicked(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            wxArrayInt selections;
-            m_enabledModList->GetSelections(selections);
-            if (selections.empty()) {
-                return;
-            }
-
-            auto document = lock(m_document);
-            auto mods = document->mods();
-            std::sort(std::begin(selections), std::end(selections));
-
-            for (auto it = selections.rbegin(), end = selections.rend(); it != end; ++it) {
-                const auto index = static_cast<size_t>(*it);
-                const auto mod = mods[index];
-                mods.erase(std::begin(mods) + *it);
-            }
-
-            document->setMods(mods);
-        }
-
-        void ModEditor::OnMoveModUpClicked(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            wxArrayInt selections;
-            m_enabledModList->GetSelections(selections);
-            assert(selections.size() == 1);
-
-            auto document = lock(m_document);
-            auto mods = document->mods();
-
-            const auto index = static_cast<size_t>(selections.front());
-            ensure(index > 0 && index < mods.size(), "index out of range");
-
-            using std::swap;
-            swap(mods[index - 1], mods[index]);
-            document->setMods(mods);
-
-            m_enabledModList->DeselectAll();
-            m_enabledModList->SetSelection(static_cast<int>(index - 1));
-        }
-
-        void ModEditor::OnMoveModDownClicked(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            wxArrayInt selections;
-            m_enabledModList->GetSelections(selections);
-            assert(selections.size() == 1);
-
-            auto document = lock(m_document);
-            auto mods = document->mods();
-
-            const auto index = static_cast<size_t>(selections.front());
-            ensure(index < mods.size() - 1, "index out of range");
-
-            using std::swap;
-            swap(mods[index + 1], mods[index]);
-            document->setMods(mods);
-
-            m_enabledModList->DeselectAll();
-            m_enabledModList->SetSelection(static_cast<int>(index + 1));
-        }
-
-        void ModEditor::OnUpdateAddButtonUI(wxUpdateUIEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            wxArrayInt selections;
-            event.Enable(m_availableModList->GetSelections(selections) > 0);
-        }
-
-        void ModEditor::OnUpdateRemoveButtonUI(wxUpdateUIEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            wxArrayInt selections;
-            event.Enable(m_enabledModList->GetSelections(selections) > 0);
-        }
-
-        void ModEditor::OnUpdateMoveUpButtonUI(wxUpdateUIEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            wxArrayInt selections;
-            event.Enable(m_enabledModList->GetSelections(selections) == 1 && selections.front() > 0);
-        }
-
-        void ModEditor::OnUpdateMoveDownButtonUI(wxUpdateUIEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            const auto enabledModCount = static_cast<int>(m_enabledModList->GetCount());
-            wxArrayInt selections;
-            event.Enable(m_enabledModList->GetSelections(selections) == 1 && selections.front() < enabledModCount - 1);
-        }
-
-        void ModEditor::OnFilterBoxChanged(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-
-            updateMods();
-        }
-
         void ModEditor::createGui() {
-            auto* availableModContainer = new TitledPanel(this, "Available", false);
-            availableModContainer->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
-            m_availableModList = new wxListBox(availableModContainer->getPanel(), wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, nullptr, wxLB_MULTIPLE | wxBORDER_NONE);
+            auto* availableModContainer = new TitledPanel("Available", false, false);
+            m_availableModList = new QListWidget();
+            m_availableModList->setStyleSheet("QListWidget { border: none; }");
+            m_availableModList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
-            auto* availableModContainerSizer = new wxBoxSizer(wxVERTICAL);
-            availableModContainerSizer->Add(m_availableModList, wxSizerFlags().Expand().Proportion(1));
-            availableModContainer->getPanel()->SetSizer(availableModContainerSizer);
+            auto* availableModContainerSizer = new QVBoxLayout();
+            availableModContainerSizer->setContentsMargins(0, 0, 0, 0);
+            availableModContainerSizer->setSpacing(0);
+            availableModContainerSizer->addWidget(m_availableModList, 1);
+            availableModContainer->getPanel()->setLayout(availableModContainerSizer);
 
-            m_filterBox = new wxSearchCtrl(this, wxID_ANY);
-            m_filterBox->SetToolTip("Filter the list of available mods");
-            m_filterBox->SetFont(m_availableModList->GetFont());
+            m_filterBox = createSearchBox();
+            m_filterBox->setToolTip(tr("Filter the list of available mods"));
 
-            auto* filterBoxSizer = new wxBoxSizer(wxVERTICAL);
-            filterBoxSizer->AddSpacer(LayoutConstants::NarrowVMargin);
-            filterBoxSizer->Add(m_filterBox, wxSizerFlags().Expand());
-            filterBoxSizer->AddSpacer(LayoutConstants::NarrowVMargin);
+            auto* filterBoxSizer = new QVBoxLayout();
+            filterBoxSizer->setContentsMargins(0, 0, 0, 0);
+            filterBoxSizer->setSpacing(0);
+            filterBoxSizer->addWidget(m_filterBox, 1);
 
-            auto* enabledModContainer = new TitledPanel(this, "Enabled", false);
-            enabledModContainer->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
-            m_enabledModList = new wxListBox(enabledModContainer->getPanel(), wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, nullptr, wxLB_MULTIPLE | wxBORDER_NONE);
+            auto* enabledModContainer = new TitledPanel("Enabled", false, false);
+            m_enabledModList = new QListWidget();
+            m_enabledModList->setStyleSheet("QListWidget { border: none; }");
+            m_enabledModList->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
-            auto* enabledModContainerSizer = new wxBoxSizer(wxVERTICAL);
-            enabledModContainerSizer->Add(m_enabledModList, wxSizerFlags().Expand().Proportion(1));
-            enabledModContainer->getPanel()->SetSizer(enabledModContainerSizer);
+            auto* enabledModContainerSizer = new QVBoxLayout();
+            enabledModContainerSizer->setContentsMargins(0, 0, 0, 0);
+            enabledModContainerSizer->setSpacing(0);
+            enabledModContainerSizer->addWidget(m_enabledModList, 1);
+            enabledModContainer->getPanel()->setLayout(enabledModContainerSizer);
 
-            auto* addModsButton = createBitmapButton(this, "Add.png", "Enable the selected mods");
-            auto* removeModsButton = createBitmapButton(this, "Remove.png", "Disable the selected mods");
-            auto* moveModUpButton = createBitmapButton(this, "Up.png", "Move the selected mod up");
-            auto* moveModDownButton = createBitmapButton(this, "Down.png", "Move the selected mod down");
+            m_addModsButton = createBitmapButton("Add.png", tr("Enable the selected mods"));
+            m_removeModsButton = createBitmapButton("Remove.png", tr("Disable the selected mods"));
+            m_moveModUpButton = createBitmapButton("Up.png", tr("Move the selected mod up"));
+            m_moveModDownButton = createBitmapButton("Down.png", tr("Move the selected mod down"));
 
-            auto* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
-            buttonSizer->Add(addModsButton, wxSizerFlags().CenterVertical().Border(wxTOP | wxBOTTOM, LayoutConstants::NarrowVMargin));
-            buttonSizer->Add(removeModsButton, wxSizerFlags().CenterVertical().Border(wxTOP | wxBOTTOM, LayoutConstants::NarrowVMargin));
-            buttonSizer->AddSpacer(LayoutConstants::WideHMargin);
-            buttonSizer->Add(moveModUpButton, wxSizerFlags().CenterVertical().Border(wxTOP | wxBOTTOM, LayoutConstants::NarrowVMargin));
-            buttonSizer->Add(moveModDownButton, wxSizerFlags().CenterVertical().Border(wxTOP | wxBOTTOM, LayoutConstants::NarrowVMargin));
-            buttonSizer->AddStretchSpacer();
+            auto* toolBar = createMiniToolBarLayout(
+                m_addModsButton,
+                m_removeModsButton,
+                LayoutConstants::WideHMargin,
+                m_moveModUpButton,
+                m_moveModDownButton);
 
-            auto* sizer = new wxGridBagSizer(0, 0);
-            sizer->Add(availableModContainer,                                   wxGBPosition(0, 0), wxDefaultSpan, wxEXPAND);
-            sizer->Add(new BorderLine(this, BorderLine::Direction_Vertical),    wxGBPosition(0, 1), wxGBSpan(3, 1), wxEXPAND);
-            sizer->Add(enabledModContainer,                                     wxGBPosition(0, 2), wxDefaultSpan, wxEXPAND);
-            sizer->Add(new BorderLine(this, BorderLine::Direction_Horizontal),  wxGBPosition(1, 0), wxGBSpan(1, 3), wxEXPAND);
-            sizer->Add(filterBoxSizer,                                          wxGBPosition(2, 0), wxDefaultSpan, wxEXPAND | wxLEFT | wxRIGHT, LayoutConstants::NarrowHMargin);
-            sizer->Add(buttonSizer,                                             wxGBPosition(2, 2), wxDefaultSpan, wxEXPAND | wxLEFT | wxRIGHT, LayoutConstants::NarrowHMargin);
-            sizer->SetItemMinSize(availableModContainer, 100, 100);
-            sizer->SetItemMinSize(enabledModContainer, 100, 100);
-            sizer->AddGrowableCol(0);
-            sizer->AddGrowableCol(2);
-            sizer->AddGrowableRow(1);
+            auto* layout = new QGridLayout();
+            layout->setContentsMargins(0, 0, 0, 0);
+            layout->setSpacing(0);
+            layout->addWidget(availableModContainer,                                   0, 0);
+            layout->addWidget(new BorderLine(BorderLine::Direction_Vertical),    0, 1, 3, 1);
+            layout->addWidget(enabledModContainer,                                     0, 2);
+            layout->addWidget(new BorderLine(BorderLine::Direction_Horizontal),  1, 0, 1, 3);
+            layout->addLayout(filterBoxSizer,                                          2, 0);
+            layout->addLayout(toolBar,                                             2, 2);
 
-            SetSizerAndFit(sizer);
+            setLayout(layout);
 
-            m_availableModList->Bind(wxEVT_LISTBOX_DCLICK, &ModEditor::OnAddModClicked, this);
-            m_enabledModList->Bind(wxEVT_LISTBOX_DCLICK, &ModEditor::OnRemoveModClicked, this);
-            m_filterBox->Bind(wxEVT_TEXT, &ModEditor::OnFilterBoxChanged, this);
-            addModsButton->Bind(wxEVT_BUTTON, &ModEditor::OnAddModClicked, this);
-            removeModsButton->Bind(wxEVT_BUTTON, &ModEditor::OnRemoveModClicked, this);
-            moveModUpButton->Bind(wxEVT_BUTTON, &ModEditor::OnMoveModUpClicked, this);
-            moveModDownButton->Bind(wxEVT_BUTTON, &ModEditor::OnMoveModDownClicked, this);
-            addModsButton->Bind(wxEVT_UPDATE_UI, &ModEditor::OnUpdateAddButtonUI, this);
-            removeModsButton->Bind(wxEVT_UPDATE_UI, &ModEditor::OnUpdateRemoveButtonUI, this);
-            moveModUpButton->Bind(wxEVT_UPDATE_UI, &ModEditor::OnUpdateMoveUpButtonUI, this);
-            moveModDownButton->Bind(wxEVT_UPDATE_UI, &ModEditor::OnUpdateMoveDownButtonUI, this);
+            connect(m_availableModList, &QListWidget::itemDoubleClicked, this, &ModEditor::addModClicked);
+            connect(m_enabledModList, &QListWidget::itemDoubleClicked, this, &ModEditor::removeModClicked);
+            connect(m_filterBox, &QLineEdit::textEdited, this, &ModEditor::filterBoxChanged);
+            connect(m_addModsButton, &QAbstractButton::clicked, this, &ModEditor::addModClicked);
+            connect(m_removeModsButton, &QAbstractButton::clicked, this, &ModEditor::removeModClicked);
+            connect(m_moveModUpButton, &QAbstractButton::clicked, this, &ModEditor::moveModUpClicked);
+            connect(m_moveModDownButton, &QAbstractButton::clicked, this, &ModEditor::moveModDownClicked);
 
+            connect(m_availableModList, &QListWidget::itemSelectionChanged, this, &ModEditor::updateButtons);
+            connect(m_enabledModList, &QListWidget::itemSelectionChanged, this, &ModEditor::updateButtons);
+
+            updateButtons();
+        }
+
+        void ModEditor::updateButtons() {
+            m_addModsButton->setEnabled(canEnableAddButton());
+            m_removeModsButton->setEnabled(canEnableRemoveButton());
+            m_moveModUpButton->setEnabled(canEnableMoveUpButton());
+            m_moveModDownButton->setEnabled(canEnableMoveDownButton());
         }
 
         void ModEditor::bindObservers() {
@@ -294,8 +166,7 @@ namespace TrenchBroom {
         }
 
         void ModEditor::modsDidChange() {
-            if (!m_ignoreNotifier)
-                updateMods();
+            updateMods();
         }
 
         void ModEditor::preferenceDidChange(const IO::Path& path) {
@@ -319,29 +190,118 @@ namespace TrenchBroom {
         }
 
         void ModEditor::updateMods() {
-            const auto pattern = m_filterBox->GetValue().ToStdString();
+            m_availableModList->clear();
+            m_enabledModList->clear();
+
+            const auto pattern = m_filterBox->text().toStdString();
 
             auto document = lock(m_document);
             auto enabledMods = document->mods();
 
-            wxArrayString availableModItems;
+            QStringList availableModItems;
             for (size_t i = 0; i < m_availableMods.size(); ++i) {
                 const auto& mod = m_availableMods[i];
                 if (StringUtils::containsCaseInsensitive(mod, pattern) &&
                     !VectorUtils::contains(enabledMods, mod)) {
-                    availableModItems.Add(mod);
+                    m_availableModList->addItem(QString::fromStdString(mod));
                 }
             }
 
-            wxArrayString enabledModItems;
+            QStringList enabledModItems;
             for (size_t i = 0; i < enabledMods.size(); ++i) {
                 if (StringUtils::containsCaseInsensitive(enabledMods[i], pattern)) {
-                    enabledModItems.Add(enabledMods[i]);
+                    m_enabledModList->addItem(QString::fromStdString(enabledMods[i]));
                 }
             }
+        }
 
-            m_availableModList->Set(availableModItems);
-            m_enabledModList->Set(enabledModItems);
+        void ModEditor::addModClicked() {
+            const QList<QListWidgetItem*> selections = m_availableModList->selectedItems();
+            if (selections.empty()) {
+                return;
+            }
+
+            auto document = lock(m_document);
+
+            StringList mods = document->mods();
+            for (QListWidgetItem* item : selections) {
+                mods.push_back(item->text().toStdString());
+            }
+            document->setMods(mods);
+        }
+
+        void ModEditor::removeModClicked() {
+            const QList<QListWidgetItem*> selections = m_enabledModList->selectedItems();
+            if (selections.empty()) {
+                return;
+            }
+
+            auto document = lock(m_document);
+
+            StringList mods = document->mods();
+            for (QListWidgetItem* item : selections) {
+                const std::string mod = item->text().toStdString();
+                VectorUtils::erase(mods, mod);
+            }
+            document->setMods(mods);
+        }
+
+        void ModEditor::moveModUpClicked() {
+            const QList<QListWidgetItem*> selections = m_enabledModList->selectedItems();
+            assert(selections.size() == 1);
+
+            auto document = lock(m_document);
+            auto mods = document->mods();
+
+            const size_t index = static_cast<size_t>(m_enabledModList->row(selections.first()));
+            ensure(index < mods.size(), "index out of range");
+
+            using std::swap;
+            swap(mods[index - 1], mods[index]);
+            document->setMods(mods);
+
+            m_enabledModList->clearSelection();
+            m_enabledModList->setCurrentRow(static_cast<int>(index - 1));
+        }
+
+        void ModEditor::moveModDownClicked() {
+            const QList<QListWidgetItem*> selections = m_enabledModList->selectedItems();
+            assert(selections.size() == 1);
+
+            auto document = lock(m_document);
+            auto mods = document->mods();
+
+            const auto index = static_cast<size_t>(m_enabledModList->row(selections.first()));
+            ensure(index < mods.size() - 1, "index out of range");
+
+            using std::swap;
+            swap(mods[index + 1], mods[index]);
+            document->setMods(mods);
+
+            m_enabledModList->clearSelection();
+            m_enabledModList->setCurrentRow(static_cast<int>(index + 1));
+        }
+
+        bool ModEditor::canEnableAddButton() const {
+            return !m_availableModList->selectedItems().empty();
+        }
+
+        bool ModEditor::canEnableRemoveButton() const {
+            return !m_enabledModList->selectedItems().empty();
+        }
+
+        bool ModEditor::canEnableMoveUpButton() const {
+            return m_enabledModList->selectedItems().size() == 1 && m_enabledModList->row(m_enabledModList->selectedItems().front()) > 0;
+        }
+
+        bool ModEditor::canEnableMoveDownButton() const {
+            const auto enabledModCount = m_enabledModList->count();
+
+            return m_enabledModList->selectedItems().size() == 1 && m_enabledModList->row(m_enabledModList->selectedItems().front()) < enabledModCount - 1;
+        }
+
+        void ModEditor::filterBoxChanged() {
+            updateMods();
         }
     }
 }

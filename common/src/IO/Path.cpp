@@ -20,14 +20,16 @@
 #include "Path.h"
 
 #include "Exceptions.h"
+#include "StringUtils.h"
 
 #include <algorithm>
-#include <cassert>
 #include <iterator>
+#include <ostream>
 
 namespace TrenchBroom {
     namespace IO {
         const Path::List Path::EmptyList = Path::List(0);
+        const Path Path::EmptyPath = Path();
 
         char Path::separator() {
 #ifdef _WIN32
@@ -145,6 +147,8 @@ namespace TrenchBroom {
             return StringUtils::join(m_components, separator);
         }
 
+
+
         StringList Path::asStrings(const Path::List& paths, const char separator) {
             auto result = StringList();
             result.reserve(paths.size());
@@ -261,6 +265,10 @@ namespace TrenchBroom {
             auto newComponents = StringList(count);
             std::copy(begin, end, std::begin(newComponents));
             return Path(m_absolute && index == 0, newComponents);
+        }
+
+        const StringList& Path::components() const {
+            return m_components;
         }
 
         String Path::filename() const {
@@ -386,6 +394,13 @@ namespace TrenchBroom {
 
         Path Path::replaceExtension(const String& extension) const {
             return deleteExtension().addExtension(extension);
+        }
+
+        Path Path::replaceBasename(const String& basename) const {
+            if (isEmpty()) {
+                throw PathException("Cannot replace the base name of an empty path.");
+            }
+            return deleteLastComponent() + IO::Path(basename).addExtension(extension());
         }
 
         bool Path::isAbsolute() const {

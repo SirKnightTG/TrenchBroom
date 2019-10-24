@@ -19,9 +19,12 @@
 
 #include "PickResult.h"
 
+#include "Ensure.h"
 #include "Model/CompareHits.h"
 
 #include <vecmath/util.h>
+
+#include <algorithm>
 
 namespace TrenchBroom {
     namespace Model {

@@ -20,8 +20,10 @@
 #include "FaceRenderer.h"
 
 #include "Preferences.h"
+#include "PreferenceManager.h"
 #include "Assets/Texture.h"
 #include "Renderer/Camera.h"
+#include "Renderer/RenderBatch.h"
 #include "Renderer/BrushRendererArrays.h"
 #include "Renderer/RenderContext.h"
 #include "Renderer/RenderUtils.h"

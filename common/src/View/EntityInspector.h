@@ -23,15 +23,9 @@
 #include "View/TabBook.h"
 #include "View/ViewTypes.h"
 
-class wxButton;
-class wxCollapsiblePaneEvent;
+class QSplitter;
 
 namespace TrenchBroom {
-    namespace Model {
-        class Object;
-        class SelectionResult;
-    }
-
     namespace View {
         class EntityBrowser;
         class EntityDefinitionFileChooser;
@@ -39,17 +33,20 @@ namespace TrenchBroom {
         class GLContextManager;
 
         class EntityInspector : public TabBookPage {
+            Q_OBJECT
         private:
+            QSplitter* m_splitter;
             EntityAttributeEditor* m_attributeEditor;
             EntityBrowser* m_entityBrowser;
             EntityDefinitionFileChooser* m_entityDefinitionFileChooser;
         public:
-            EntityInspector(wxWindow* parent, MapDocumentWPtr document, GLContextManager& contextManager);
+            EntityInspector(MapDocumentWPtr document, GLContextManager& contextManager, QWidget* parent = nullptr);
+            ~EntityInspector() override;
         private:
             void createGui(MapDocumentWPtr document, GLContextManager& contextManager);
-            wxWindow* createAttributeEditor(wxWindow* parent, MapDocumentWPtr document);
-            wxWindow* createEntityBrowser(wxWindow* parent, MapDocumentWPtr document, GLContextManager& contextManager);
-            wxWindow* createEntityDefinitionFileChooser(wxWindow* parent, MapDocumentWPtr document);
+            QWidget* createAttributeEditor(QWidget* parent, MapDocumentWPtr document);
+            QWidget* createEntityBrowser(QWidget* parent, MapDocumentWPtr document, GLContextManager& contextManager);
+            QWidget* createEntityDefinitionFileChooser(QWidget* parent, MapDocumentWPtr document);
         };
     }
 }

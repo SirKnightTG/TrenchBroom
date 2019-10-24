@@ -24,8 +24,6 @@
 #include "View/MultiMapView.h"
 #include "View/ViewTypes.h"
 
-class wxWindow;
-
 namespace TrenchBroom {
     class Logger;
 
@@ -49,7 +47,7 @@ namespace TrenchBroom {
             CameraLinkHelper m_linkHelper;
             CyclingMapView* m_mapView;
         public:
-            OnePaneMapView(wxWindow* parent, Logger* logger, MapDocumentWPtr document, MapViewToolBox& toolBox, Renderer::MapRenderer& mapRenderer, GLContextManager& contextManager);
+            explicit OnePaneMapView(Logger* logger, MapDocumentWPtr document, MapViewToolBox& toolBox, Renderer::MapRenderer& mapRenderer, GLContextManager& contextManager, QWidget* parent = nullptr);
         private:
             void createGui(MapViewToolBox& toolBox, Renderer::MapRenderer& mapRenderer, GLContextManager& contextManager);
         };

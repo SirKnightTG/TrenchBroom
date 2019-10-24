@@ -20,8 +20,7 @@
 #ifndef DiskIO_h
 #define DiskIO_h
 
-#include "StringUtils.h"
-#include "IO/FileMatcher.h"
+#include "StringType.h"
 #include "IO/Path.h"
 
 #include <memory>
@@ -37,8 +36,6 @@ namespace TrenchBroom {
 
             bool directoryExists(const Path& path);
             bool fileExists(const Path& path);
-
-            String replaceForbiddenChars(const String& name);
 
             Path::List getDirectoryContents(const Path& path);
             std::shared_ptr<File> openFile(const Path& path);

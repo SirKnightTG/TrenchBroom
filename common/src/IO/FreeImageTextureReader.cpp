@@ -20,6 +20,7 @@
 #include "FreeImageTextureReader.h"
 
 #include "Color.h"
+#include "Ensure.h"
 #include "FreeImage.h"
 #include "StringUtils.h"
 #include "Assets/Texture.h"
@@ -27,8 +28,6 @@
 #include "IO/Reader.h"
 #include "IO/Path.h"
 #include "IO/ImageLoaderImpl.h"
-
-#include <cstring>
 
 namespace TrenchBroom {
     namespace IO {

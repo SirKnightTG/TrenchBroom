@@ -20,7 +20,8 @@
 #include "Brush.h"
 
 #include "CollectionUtils.h"
-#include "Macros.h"
+#include "Constants.h"
+#include "Polyhedron_Matcher.h"
 #include "Model/BrushFace.h"
 #include "Model/BrushGeometry.h"
 #include "Model/BrushSnapshot.h"
@@ -34,6 +35,7 @@
 #include "Model/PickResult.h"
 #include "Model/TagVisitor.h"
 #include "Model/World.h"
+#include "Renderer/BrushRendererBrushCache.h"
 
 #include <vecmath/intersection.h>
 #include <vecmath/vec.h>
@@ -175,7 +177,7 @@ namespace TrenchBroom {
             }
 
             MoveVerticesCallback(const BrushGeometry* geometry) {
-                buildIncidences(geometry, Brush::createVertexSet(), vm::vec3::zero);
+                buildIncidences(geometry, Brush::createVertexSet(), vm::vec3::zero());
             }
 
             ~MoveVerticesCallback() override {
@@ -299,7 +301,9 @@ namespace TrenchBroom {
         };
 
         Brush::Brush(const vm::bbox3& worldBounds, const BrushFaceList& faces) :
-        m_geometry(nullptr) {
+        m_geometry(nullptr),
+        m_transparent(false),
+        m_brushRendererBrushCache(std::make_unique<Renderer::BrushRendererBrushCache>()) {
             addFaces(faces);
             try {
                 buildGeometry(worldBounds);
@@ -360,7 +364,7 @@ namespace TrenchBroom {
 
         BrushFace* Brush::findFace(const vm::vec3& normal) const {
             for (auto* face : m_faces) {
-                if (isEqual(face->boundary().normal, normal, vm::C::almostZero())) {
+                if (vm::is_equal(face->boundary().normal, normal, vm::C::almost_zero())) {
                     return face;
                 }
             }
@@ -369,7 +373,7 @@ namespace TrenchBroom {
 
         BrushFace* Brush::findFace(const vm::plane3& boundary) const {
             for (auto* face : m_faces) {
-                if (isEqual(face->boundary(), boundary, vm::C::almostZero())) {
+                if (vm::is_equal(face->boundary(), boundary, vm::C::almost_zero())) {
                     return face;
                 }
             }
@@ -539,7 +543,7 @@ namespace TrenchBroom {
 
         bool Brush::canMoveBoundary(const vm::bbox3& worldBounds, const BrushFace* face, const vm::vec3& delta) const {
             auto* testFace = face->clone();
-            testFace->transform(vm::translationMatrix(delta), false);
+            testFace->transform(vm::translation_matrix(delta), false);
 
             BrushFaceList testFaces;
             testFaces.push_back(testFace);
@@ -566,7 +570,7 @@ namespace TrenchBroom {
             assert(canMoveBoundary(worldBounds, face, delta));
 
             const NotifyNodeChange nodeChange(this);
-            face->transform(vm::translationMatrix(delta), lockTexture);
+            face->transform(vm::translation_matrix(delta), lockTexture);
             rebuildGeometry(worldBounds);
         }
 
@@ -584,7 +588,7 @@ namespace TrenchBroom {
             // move the faces
             for (BrushFace* face : m_faces) {
                 const vm::vec3 moveAmount = face->boundary().normal * delta;
-                face->transform(vm::translationMatrix(moveAmount), lockTexture);
+                face->transform(vm::translation_matrix(moveAmount), lockTexture);
             }
 
             // rebuild geometry
@@ -689,7 +693,7 @@ namespace TrenchBroom {
                 return false;
             } else {
                 for (const auto* face : m_faces) {
-                    if (face->boundary().pointStatus(point) == vm::point_status::above) {
+                    if (face->boundary().point_status(point) == vm::plane_status::above) {
                         return false;
                     }
                 }
@@ -723,7 +727,7 @@ namespace TrenchBroom {
             result.reserve(vertexPositions.size());
 
             for (const auto& position : vertexPositions) {
-                const auto* newVertex = m_geometry->findClosestVertex(position + delta, vm::C::almostZero());
+                const auto* newVertex = m_geometry->findClosestVertex(position + delta, vm::C::almost_zero());
                 if (newVertex != nullptr) {
                     result.push_back(newVertex->position());
                 }
@@ -746,7 +750,7 @@ namespace TrenchBroom {
             const PolyhedronMatcher<BrushGeometry> matcher(*m_geometry, newGeometry);
             doSetNewGeometry(worldBounds, matcher, newGeometry);
 
-            auto* newVertex = m_geometry->findClosestVertex(position, vm::C::almostZero());
+            auto* newVertex = m_geometry->findClosestVertex(position, vm::C::almost_zero());
             ensure(newVertex != nullptr, "vertex could not be added");
             return newVertex;
         }
@@ -830,8 +834,9 @@ namespace TrenchBroom {
             ensure(!edgePositions.empty(), "no edge positions");
 
             std::vector<vm::vec3> vertexPositions;
-            vm::segment3::getVertices(std::begin(edgePositions), std::end(edgePositions),
-                                  std::back_inserter(vertexPositions));
+            vm::segment3::get_vertices(
+                std::begin(edgePositions), std::end(edgePositions),
+                std::back_inserter(vertexPositions));
             const auto result = doCanMoveVertices(worldBounds, vertexPositions, delta, false);
 
             if (!result.success) {
@@ -851,7 +856,7 @@ namespace TrenchBroom {
             assert(canMoveEdges(worldBounds, edgePositions, delta));
 
             std::vector<vm::vec3> vertexPositions;
-            vm::segment3::getVertices(std::begin(edgePositions), std::end(edgePositions),
+            vm::segment3::get_vertices(std::begin(edgePositions), std::end(edgePositions),
                                   std::back_inserter(vertexPositions));
             doMoveVertices(worldBounds, vertexPositions, delta, uvLock);
 
@@ -859,7 +864,8 @@ namespace TrenchBroom {
             result.reserve(edgePositions.size());
 
             for (const auto& edgePosition : edgePositions) {
-                const auto* newEdge = m_geometry->findClosestEdge(edgePosition.start() + delta, edgePosition.end() + delta, vm::C::almostZero());
+                const auto* newEdge = m_geometry->findClosestEdge(edgePosition.start() + delta, edgePosition.end() + delta,
+                    vm::C::almost_zero());
                 if (newEdge != nullptr) {
                     result.push_back(vm::segment3(newEdge->firstVertex()->position(), newEdge->secondVertex()->position()));
                 }
@@ -873,7 +879,7 @@ namespace TrenchBroom {
             ensure(!facePositions.empty(), "no face positions");
 
             std::vector<vm::vec3> vertexPositions;
-            vm::polygon3::getVertices(std::begin(facePositions), std::end(facePositions), std::back_inserter(vertexPositions));
+            vm::polygon3::get_vertices(std::begin(facePositions), std::end(facePositions), std::back_inserter(vertexPositions));
             const auto result = doCanMoveVertices(worldBounds, vertexPositions, delta, false);
 
             if (!result.success) {
@@ -893,14 +899,14 @@ namespace TrenchBroom {
             assert(canMoveFaces(worldBounds, facePositions, delta));
 
             std::vector<vm::vec3> vertexPositions;
-            vm::polygon3::getVertices(std::begin(facePositions), std::end(facePositions), std::back_inserter(vertexPositions));
+            vm::polygon3::get_vertices(std::begin(facePositions), std::end(facePositions), std::back_inserter(vertexPositions));
             doMoveVertices(worldBounds, vertexPositions, delta, uvLock);
 
             std::vector<vm::polygon3> result;
             result.reserve(facePositions.size());
 
             for (const auto& facePosition : facePositions) {
-                const auto* newFace = m_geometry->findClosestFace(facePosition.vertices() + delta, vm::C::almostZero());
+                const auto* newFace = m_geometry->findClosestFace(facePosition.vertices() + delta, vm::C::almost_zero());
                 if (newFace != nullptr) {
                     result.push_back(vm::polygon3(newFace->vertexPositions()));
                 }
@@ -949,7 +955,7 @@ namespace TrenchBroom {
          */
         Brush::CanMoveVerticesResult Brush::doCanMoveVertices(const vm::bbox3& worldBounds, const std::vector<vm::vec3>& vertexPositions, vm::vec3 delta, const bool allowVertexRemoval) const {
             // Should never occur, takes care of the first row.
-            if (vertexPositions.empty() || isZero(delta, vm::C::almostZero())) {
+            if (vertexPositions.empty() || vm::is_zero(delta, vm::C::almost_zero())) {
                 return CanMoveVerticesResult::rejectVertexMove();
             }
 
@@ -1015,11 +1021,11 @@ namespace TrenchBroom {
                 const auto newPos = oldPos + delta;
 
                 for (const auto* face : remaining.faces()) {
-                    if (face->pointStatus(oldPos) == vm::point_status::below &&
-                        face->pointStatus(newPos) == vm::point_status::above) {
+                    if (face->pointStatus(oldPos) == vm::plane_status::below &&
+                        face->pointStatus(newPos) == vm::plane_status::above) {
                         const auto ray = vm::ray3(oldPos, normalize(newPos - oldPos));
                         const auto distance = face->intersectWithRay(ray, vm::side::back);
-                        if (!vm::isnan(distance)) {
+                        if (!vm::is_nan(distance)) {
                             return CanMoveVerticesResult::rejectVertexMove();
                         }
                     }
@@ -1052,7 +1058,7 @@ namespace TrenchBroom {
                 const auto& oldPosition = oldVertex->position();
                 const auto moved = vertexSet.count(oldPosition);
                 const auto newPosition = moved ? oldPosition + delta : oldPosition;
-                const auto* newVertex = newGeometry.findClosestVertex(newPosition, vm::C::almostZero());
+                const auto* newVertex = newGeometry.findClosestVertex(newPosition, vm::C::almost_zero());
                 if (newVertex != nullptr) {
                     vertexMapping.insert(std::make_pair(oldPosition, newVertex->position()));
                 }
@@ -1070,7 +1076,7 @@ namespace TrenchBroom {
                 const auto leftPosition = leftVertex->position();
                 const auto rightPosition = rightVertex->position();
 
-                if (isEqual(leftPosition, rightPosition, vm::constants<FloatType>::almostZero())) {
+                if (vm::is_equal(leftPosition, rightPosition, vm::constants<FloatType>::almost_zero())) {
                     unmovedVerts.push_back(leftPosition);
                 } else {
                     movedVerts.emplace_back(leftPosition, rightPosition);
@@ -1099,7 +1105,7 @@ namespace TrenchBroom {
                 return std::make_tuple(false, vm::mat4x4());
             }
 
-            const auto M = pointsTransformationMatrix(
+            const auto M = vm::points_transformation_matrix(
                     referenceVerts[0].first, referenceVerts[1].first, referenceVerts[2].first,
                     referenceVerts[0].second, referenceVerts[1].second, referenceVerts[2].second);
 
@@ -1400,8 +1406,8 @@ namespace TrenchBroom {
         void Brush::doPick(const vm::ray3& ray, PickResult& pickResult) const {
             const auto hit = findFaceHit(ray);
             if (hit.face != nullptr) {
-                ensure(!vm::isnan(hit.distance), "nan hit distance");
-                const auto hitPoint = ray.pointAtDistance(hit.distance);
+                ensure(!vm::is_nan(hit.distance), "nan hit distance");
+                const auto hitPoint = vm::point_at_distance(ray, hit.distance);
                 pickResult.addHit(Hit(BrushHit, hit.distance, hitPoint, hit.face));
             }
         }
@@ -1417,13 +1423,13 @@ namespace TrenchBroom {
         Brush::BrushFaceHit::BrushFaceHit(BrushFace* i_face, const FloatType i_distance) : face(i_face), distance(i_distance) {}
 
         Brush::BrushFaceHit Brush::findFaceHit(const vm::ray3& ray) const {
-            if (vm::isnan(vm::intersectRayAndBBox(ray, logicalBounds()))) {
+            if (vm::is_nan(vm::intersect_ray_bbox(ray, logicalBounds()))) {
                 return BrushFaceHit();
             }
 
             for (auto* face : m_faces) {
                 const auto distance = face->intersectWithRay(ray);
-                if (!vm::isnan(distance)) {
+                if (!vm::is_nan(distance)) {
                     return BrushFaceHit(face, distance);
                 }
             }
@@ -1527,11 +1533,11 @@ namespace TrenchBroom {
         }
 
         void Brush::invalidateVertexCache() {
-            m_brushRendererBrushCache.invalidateVertexCache();
+            m_brushRendererBrushCache->invalidateVertexCache();
         }
 
         Renderer::BrushRendererBrushCache& Brush::brushRendererBrushCache() const {
-            return m_brushRendererBrushCache;
+            return *m_brushRendererBrushCache;
         }
 
         void Brush::initializeTags(TagManager& tagManager) {

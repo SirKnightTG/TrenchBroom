@@ -25,32 +25,25 @@
 #include "Model/BrushBuilder.h"
 #include "Model/BrushFace.h"
 #include "Model/CollectContainedNodesVisitor.h"
-#include "Model/CompareHits.h"
-#include "Model/Entity.h"
 #include "Model/HitAdapter.h"
-#include "Model/HitQuery.h"
 #include "Model/PickResult.h"
 #include "Model/PointFile.h"
-#include "Model/World.h"
 #include "Renderer/Compass2D.h"
 #include "Renderer/GridRenderer.h"
 #include "Renderer/MapRenderer.h"
 #include "Renderer/RenderContext.h"
 #include "Renderer/SelectionBoundsRenderer.h"
-#include "View/ActionManager.h"
 #include "View/Animation.h"
 #include "View/CameraAnimation.h"
 #include "View/CameraLinkHelper.h"
 #include "View/CameraTool2D.h"
 #include "View/ClipToolController.h"
-#include "View/CommandIds.h"
 #include "View/CreateEntityToolController.h"
 #include "View/CreateSimpleBrushToolController2D.h"
 #include "View/EdgeTool.h"
 #include "View/EdgeToolController.h"
 #include "View/FaceTool.h"
 #include "View/FaceToolController.h"
-#include "View/FlashSelectionAnimation.h"
 #include "View/GLContextManager.h"
 #include "View/Grid.h"
 #include "View/MapDocument.h"
@@ -63,32 +56,31 @@
 #include "View/SelectionTool.h"
 #include "View/VertexTool.h"
 #include "View/VertexToolController.h"
-#include "View/wxUtils.h"
 
 #include <vecmath/util.h>
 
 namespace TrenchBroom {
     namespace View {
-        MapView2D::MapView2D(wxWindow* parent, Logger* logger, MapDocumentWPtr document, MapViewToolBox& toolBox, Renderer::MapRenderer& renderer, GLContextManager& contextManager, const ViewPlane viewPlane) :
-        MapViewBase(parent, logger, document, toolBox, renderer, contextManager),
+        MapView2D::MapView2D(MapDocumentWPtr document, MapViewToolBox& toolBox, Renderer::MapRenderer& renderer,
+                             GLContextManager& contextManager, ViewPlane viewPlane, Logger* logger) :
+        MapViewBase(logger, document, toolBox, renderer, contextManager),
         m_camera(){
             bindObservers();
             initializeCamera(viewPlane);
             initializeToolChain(toolBox);
-            setCompass(new Renderer::Compass2D());
 
-			switch (viewPlane) {
-			case ViewPlane_XY:
-				SetName("XY View");
-				break;
-			case ViewPlane_YZ:
-				SetName("YZ View");
-				break;
-			case ViewPlane_XZ:
-				SetName("XZ View");
-				break;
-			switchDefault()
-			}
+            switch (viewPlane) {
+            case ViewPlane_XY:
+                setObjectName("XY View");
+                break;
+            case ViewPlane_YZ:
+                setObjectName("YZ View");
+                break;
+            case ViewPlane_XZ:
+                setObjectName("XZ View");
+                break;
+            switchDefault()
+            }
         }
 
         MapView2D::~MapView2D() {
@@ -98,15 +90,15 @@ namespace TrenchBroom {
         void MapView2D::initializeCamera(const ViewPlane viewPlane) {
             switch (viewPlane) {
                 case MapView2D::ViewPlane_XY:
-                    m_camera.setDirection(vm::vec3f::neg_z, vm::vec3f::pos_y);
+                    m_camera.setDirection(vm::vec3f::neg_z(), vm::vec3f::pos_y());
                     m_camera.moveTo(vm::vec3f(0.0f, 0.0f, 16384.0f));
                     break;
                 case MapView2D::ViewPlane_XZ:
-                    m_camera.setDirection(vm::vec3f::pos_y, vm::vec3f::pos_z);
+                    m_camera.setDirection(vm::vec3f::pos_y(), vm::vec3f::pos_z());
                     m_camera.moveTo(vm::vec3f(0.0f, -16384.0f, 0.0f));
                     break;
                 case MapView2D::ViewPlane_YZ:
-                    m_camera.setDirection(vm::vec3f::neg_x, vm::vec3f::pos_z);
+                    m_camera.setDirection(vm::vec3f::neg_x(), vm::vec3f::pos_z());
                     m_camera.moveTo(vm::vec3f(16384.0f, 0.0f, 0.0f));
                     break;
             }
@@ -140,7 +132,7 @@ namespace TrenchBroom {
         }
 
         void MapView2D::cameraDidChange(const Renderer::Camera* camera) {
-            Refresh();
+            update();
         }
 
         PickRequest MapView2D::doGetPickRequest(const int x, const int y) const {
@@ -150,12 +142,17 @@ namespace TrenchBroom {
         Model::PickResult MapView2D::doPick(const vm::ray3& pickRay) const {
             auto document = lock(m_document);
             const auto& editorContext = document->editorContext();
-            const auto axis = firstComponent(pickRay.direction);
+            const auto axis = vm::find_abs_max_component(pickRay.direction);
 
             auto pickResult = Model::PickResult::bySize(editorContext, axis);
             document->pick(pickRay, pickResult);
 
             return pickResult;
+        }
+
+        void MapView2D::initializeGL() {
+            MapViewBase::initializeGL();
+            setCompass(std::make_unique<Renderer::Compass2D>());
         }
 
         void MapView2D::doUpdateViewport(const int x, const int y, const int width, const int height) {
@@ -174,11 +171,11 @@ namespace TrenchBroom {
             const auto anchor = dot(toMin, pickRay.direction) > dot(toMax, pickRay.direction) ? referenceBounds.min : referenceBounds.max;
             const auto dragPlane = vm::plane3(anchor, -pickRay.direction);
 
-            const auto distance = vm::intersectRayAndPlane(pickRay, dragPlane);;
-            if (vm::isnan(distance)) {
-                return vm::vec3::zero;
+            const auto distance = vm::intersect_ray_plane(pickRay, dragPlane);
+            if (vm::is_nan(distance)) {
+                return vm::vec3::zero();
             } else {
-                const auto hitPoint = pickRay.pointAtDistance(distance);
+                const auto hitPoint = vm::point_at_distance(pickRay, distance);
                 return grid.moveDeltaForBounds(dragPlane, bounds, worldBounds, pickRay, hitPoint);
             }
         }
@@ -209,8 +206,8 @@ namespace TrenchBroom {
                 tallVertices.reserve(2 * selectionBrush->vertexCount());
 
                 for (const Model::BrushVertex* vertex : selectionBrush->vertices()) {
-                    tallVertices.push_back(minPlane.projectPoint(vertex->position()));
-                    tallVertices.push_back(maxPlane.projectPoint(vertex->position()));
+                    tallVertices.push_back(minPlane.project_point(vertex->position()));
+                    tallVertices.push_back(maxPlane.project_point(vertex->position()));
                 }
 
                 Model::Brush* tallBrush = brushBuilder.createBrush(tallVertices, Model::BrushFace::NoTextureName);
@@ -243,10 +240,10 @@ namespace TrenchBroom {
             }
         }
 
-        void MapView2D::animateCamera(const vm::vec3f& position, const vm::vec3f& direction, const vm::vec3f& up, const wxLongLong& duration) {
+        void MapView2D::animateCamera(const vm::vec3f& position, const vm::vec3f& direction, const vm::vec3f& up, const int duration) {
             const auto actualPosition = dot(position, m_camera.up()) * m_camera.up() + dot(position, m_camera.right()) * m_camera.right() + dot(m_camera.position(), m_camera.direction()) * m_camera.direction();
-            auto* animation = new CameraAnimation(m_camera, actualPosition, m_camera.direction(), m_camera.up(), duration);
-            m_animationManager->runAnimation(animation, true);
+            auto animation = std::make_unique<CameraAnimation>(m_camera, actualPosition, m_camera.direction(), m_camera.up(), duration);
+            m_animationManager->runAnimation(std::move(animation), true);
         }
 
         void MapView2D::doMoveCameraToCurrentTracePoint() {
@@ -261,19 +258,21 @@ namespace TrenchBroom {
         }
 
         vm::vec3 MapView2D::doGetMoveDirection(const vm::direction direction) const {
+            // The mapping is a bit counter intuitive, but it makes sense considering that the cursor up key is usually
+            // bounds to the forward action (which makes sense in 3D), but should move objects "up" in 2D.
             switch (direction) {
                 case vm::direction::forward:
-                    return vm::vec3(firstAxis(m_camera.direction()));
+                    return vm::vec3(vm::get_abs_max_component_axis(m_camera.up()));
                 case vm::direction::backward:
-                    return vm::vec3(-firstAxis(m_camera.direction()));
+                    return vm::vec3(-vm::get_abs_max_component_axis(m_camera.up()));
                 case vm::direction::left:
-                    return vm::vec3(-firstAxis(m_camera.right()));
+                    return vm::vec3(-vm::get_abs_max_component_axis(m_camera.right()));
                 case vm::direction::right:
-                    return vm::vec3(firstAxis(m_camera.right()));
+                    return vm::vec3(vm::get_abs_max_component_axis(m_camera.right()));
                 case vm::direction::up:
-                    return vm::vec3(firstAxis(m_camera.up()));
+                    return vm::vec3(-vm::get_abs_max_component_axis(m_camera.direction()));
                 case vm::direction::down:
-                    return vm::vec3(-firstAxis(m_camera.up()));
+                    return vm::vec3(vm::get_abs_max_component_axis(m_camera.direction()));
                 switchDefault()
             }
         }
@@ -281,9 +280,7 @@ namespace TrenchBroom {
         vm::vec3 MapView2D::doComputePointEntityPosition(const vm::bbox3& bounds) const {
             auto document = lock(m_document);
 
-            vm::vec3 delta;
             const auto& grid = document->grid();
-
             const auto& worldBounds = document->worldBounds();
 
             const auto& hit = pickResult().query().pickable().type(Model::Brush::BrushHit).occluded().selected().first();
@@ -299,26 +296,22 @@ namespace TrenchBroom {
                 const auto anchor = dot(toMin, pickRay.direction) > dot(toMax, pickRay.direction) ? referenceBounds.min : referenceBounds.max;
                 const auto dragPlane = vm::plane3(anchor, -pickRay.direction);
 
-                const auto distance = vm::intersectRayAndPlane(pickRay, dragPlane);
-                if (vm::isnan(distance)) {
-                    return vm::vec3::zero;
+                const auto distance = vm::intersect_ray_plane(pickRay, dragPlane);
+                if (vm::is_nan(distance)) {
+                    return vm::vec3::zero();
                 } else {
-                    const auto hitPoint = pickRay.pointAtDistance(distance);
+                    const auto hitPoint = vm::point_at_distance(pickRay, distance);
                     return grid.moveDeltaForBounds(dragPlane, bounds, worldBounds, pickRay, hitPoint);
                 }
             }
         }
 
-        ActionContext MapView2D::doGetActionContext() const {
-            return ActionContext_Default;
+        ActionContext::Type MapView2D::doGetActionContext() const {
+            return ActionContext::View2D;
         }
 
-        wxAcceleratorTable MapView2D::doCreateAccelerationTable(ActionContext context) const {
-            auto document = lock(m_document);
-            const auto& tags = document->smartTags();
-            const auto& entityDefinitions = document->entityDefinitionManager().definitions();
-            auto& actionManager = ActionManager::instance();
-            return actionManager.createViewAcceleratorTable(context, ActionView_Map2D, tags, entityDefinitions);
+        ActionView MapView2D::doGetActionView() const {
+            return ActionView_Map2D;
         }
 
         bool MapView2D::doCancel() {

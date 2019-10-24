@@ -20,6 +20,7 @@
 #ifndef BrushRendererArray_h
 #define BrushRendererArray_h
 
+#include "Ensure.h"
 #include "Renderer/GLVertexType.h"
 #include "Renderer/Vbo.h"
 #include "Renderer/AllocationTracker.h"
@@ -28,7 +29,6 @@
 
 #include <vecmath/vec.h>
 
-#include <algorithm>
 #include <vector>
 #include <cassert>
 #include <unordered_map>

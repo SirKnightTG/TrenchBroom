@@ -19,6 +19,7 @@
 
 #include "HitQuery.h"
 
+#include "Constants.h"
 #include "Model/EditorContext.h"
 #include "Model/HitAdapter.h"
 #include "Model/HitFilter.h"
@@ -127,7 +128,7 @@ namespace TrenchBroom {
                             containsOccluder = true;
                         }
                         ++it;
-                    } while (it != end && vm::isEqual(it->distance(), distance, vm::C::almostZero()));
+                    } while (it != end && vm::is_equal(it->distance(), distance, vm::C::almost_zero()));
                 }
 
                 if (bestMatch != end && bestMatchError <= bestOccluderError)

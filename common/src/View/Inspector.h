@@ -22,7 +22,7 @@
 
 #include "View/ViewTypes.h"
 
-#include <wx/panel.h>
+#include <QWidget>
 
 namespace TrenchBroom {
     namespace Renderer {
@@ -36,7 +36,8 @@ namespace TrenchBroom {
         class MapInspector;
         class TabBook;
 
-        class Inspector : public wxPanel {
+        class Inspector : public QWidget {
+            Q_OBJECT
         public:
             typedef enum {
                 InspectorPage_Map = 0,
@@ -49,13 +50,23 @@ namespace TrenchBroom {
             MapInspector* m_mapInspector;
             EntityInspector* m_entityInspector;
             FaceInspector* m_faceInspector;
+
+            QWidget* m_topWidgetMaster;
         public:
-            Inspector(wxWindow* parent, MapDocumentWPtr document, GLContextManager& contextManager);
-            void connectTopWidgets(wxWindow* master);
+            Inspector(MapDocumentWPtr document, GLContextManager& contextManager, QWidget* parent = nullptr);
+            void connectTopWidgets(QWidget* master);
             void switchToPage(InspectorPage page);
             bool cancelMouseDrag();
         private:
-            void OnTopWidgetSize(wxSizeEvent& event);
+            /**
+             * Event filter used to capture resize events of the top widget, used to synchronize the inspectors tab bar
+             * height to the height of the map view's top bar.
+             *
+             * @param target the target that receives an event
+             * @param event the event
+             * @return true if the event should not be propagated to the target and false otherwise
+             */
+            bool eventFilter(QObject* target, QEvent* event) override;
         };
     }
 }

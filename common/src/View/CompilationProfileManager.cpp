@@ -25,107 +25,105 @@
 #include "View/CompilationProfileListBox.h"
 #include "View/CompilationProfileEditor.h"
 #include "View/TitledPanel.h"
-#include "View/ViewConstants.h"
 #include "View/wxUtils.h"
 
-#include <wx/settings.h>
-#include <wx/sizer.h>
+#include <QAbstractButton>
 
 namespace TrenchBroom {
     namespace View {
-        CompilationProfileManager::CompilationProfileManager(wxWindow* parent, MapDocumentWPtr document, Model::CompilationConfig& config) :
-        wxPanel(parent),
+        CompilationProfileManager::CompilationProfileManager(MapDocumentWPtr document, Model::CompilationConfig& config, QWidget* parent) :
+        QWidget(parent),
         m_config(config),
         m_profileList(nullptr),
         m_profileEditor() {
-            SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_LISTBOX));
+            setBaseWindowColor(this);
 
-            TitledPanel* listPanel = new TitledPanel(this, "Profiles");
-            TitledPanel* editorPanel = new TitledPanel(this, "Details");
-            listPanel->getPanel()->SetBackgroundColour(GetBackgroundColour());
-            editorPanel->getPanel()->SetBackgroundColour(GetBackgroundColour());
+            auto* listPanel = new TitledPanel("Profiles");
+            auto* editorPanel = new TitledPanel("Details");
 
-            m_profileList = new CompilationProfileListBox(listPanel->getPanel(), m_config);
-            m_profileEditor = new CompilationProfileEditor(editorPanel->getPanel(), document);
+            m_profileList = new CompilationProfileListBox(m_config, listPanel->getPanel());
+            m_profileEditor = new CompilationProfileEditor(std::move(document), editorPanel->getPanel());
 
-            wxWindow* addProfileButton = createBitmapButton(listPanel->getPanel(), "Add.png", "Add profile");
-            wxWindow* removeProfileButton = createBitmapButton(listPanel->getPanel(), "Remove.png", "Remove the selected profile");
+            auto* addProfileButton = createBitmapButton("Add.png", "Add profile");
+            m_removeProfileButton = createBitmapButton("Remove.png", "Remove the selected profile");
+            auto* buttonLayout = createMiniToolBarLayout(addProfileButton, m_removeProfileButton);
 
-            addProfileButton->Bind(wxEVT_BUTTON, &CompilationProfileManager::OnAddProfile, this);
-            removeProfileButton->Bind(wxEVT_BUTTON, &CompilationProfileManager::OnRemoveProfile, this);
-            addProfileButton->Bind(wxEVT_UPDATE_UI, &CompilationProfileManager::OnUpdateAddProfileButtonUI, this);
-            removeProfileButton->Bind(wxEVT_UPDATE_UI, &CompilationProfileManager::OnUpdateRemoveProfileButtonUI, this);
+            auto* listLayout = new QVBoxLayout();
+            listLayout->setContentsMargins(0, 0, 0, 0);
+            listLayout->setSpacing(0);
+            listLayout->addWidget(m_profileList, 1);
+            listLayout->addWidget(new BorderLine(BorderLine::Direction_Horizontal));
+            listLayout->addLayout(buttonLayout);
+            listPanel->getPanel()->setLayout(listLayout);
 
-            wxSizer* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
-            buttonSizer->Add(addProfileButton, 0, wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM, LayoutConstants::NarrowVMargin);
-            buttonSizer->Add(removeProfileButton, 0, wxALIGN_CENTER_VERTICAL | wxTOP | wxBOTTOM, LayoutConstants::NarrowVMargin);
-            buttonSizer->AddStretchSpacer();
+            auto* editorLayout = new QVBoxLayout();
+            editorLayout->setContentsMargins(0, 0, 0, 0);
+            editorLayout->setSpacing(0);
+            editorLayout->addWidget(m_profileEditor);
+            editorPanel->getPanel()->setLayout(editorLayout);
 
-            wxSizer* listSizer = new wxBoxSizer(wxVERTICAL);
-            listSizer->Add(m_profileList, 1, wxEXPAND);
-            listSizer->Add(new BorderLine(listPanel->getPanel(), BorderLine::Direction_Horizontal), 0, wxEXPAND);
-            listSizer->Add(buttonSizer);
-            listPanel->getPanel()->SetSizer(listSizer);
+            auto* outerLayout = new QHBoxLayout();
+            outerLayout->setContentsMargins(0, 0, 0, 0);
+            outerLayout->setSpacing(0);
+            outerLayout->addWidget(listPanel);
+            outerLayout->addWidget(new BorderLine(BorderLine::Direction_Vertical));
+            outerLayout->addWidget(editorPanel, 1);
+            setLayout(outerLayout);
 
-            wxSizer* editorSizer = new wxBoxSizer(wxVERTICAL);
-            editorSizer->Add(m_profileEditor, 1, wxEXPAND);
-            editorPanel->getPanel()->SetSizer(editorSizer);
+            listPanel->setMinimumSize(200, 200);
 
-            wxSizer* outerSizer = new wxBoxSizer(wxHORIZONTAL);
-            outerSizer->Add(listPanel, 0, wxEXPAND);
-            outerSizer->Add(new BorderLine(this, BorderLine::Direction_Vertical), 0, wxEXPAND);
-            outerSizer->Add(editorPanel, 1, wxEXPAND);
-            outerSizer->SetItemMinSize(listPanel, wxSize(200, 200));
-            SetSizer(outerSizer);
+            connect(m_profileList, &ControlListBox::itemSelectionChanged, this, &CompilationProfileManager::profileSelectionChanged);
+            connect(addProfileButton, &QAbstractButton::clicked, this, &CompilationProfileManager::addProfile);
+            connect(m_removeProfileButton, &QAbstractButton::clicked, this, &CompilationProfileManager::removeProfile);
 
-            m_profileList->Bind(wxEVT_LISTBOX, &CompilationProfileManager::OnProfileSelectionChanged, this);
+            if (m_profileList->count() > 0) {
+                m_profileList->setCurrentRow(0);
+            }
         }
 
         const Model::CompilationProfile* CompilationProfileManager::selectedProfile() const {
-            const int index = m_profileList->GetSelection();
-            if (index == wxNOT_FOUND)
+            const auto index = m_profileList->currentRow();
+            if (index < 0) {
                 return nullptr;
-            return m_config.profile(static_cast<size_t>(index));
+            } else {
+                return m_config.profile(static_cast<size_t>(index));
+            }
         }
 
-        void CompilationProfileManager::OnAddProfile(wxCommandEvent& event) {
+        void CompilationProfileManager::addProfile() {
             m_config.addProfile(new Model::CompilationProfile("unnamed", "${MAP_DIR_PATH}"));
-            m_profileList->SetSelection(static_cast<int>(m_config.profileCount() - 1));
+            m_profileList->setCurrentRow(static_cast<int>(m_config.profileCount() - 1));
         }
 
-        void CompilationProfileManager::OnRemoveProfile(wxCommandEvent& event) {
-            const int index = m_profileList->GetSelection();
-            assert(index != wxNOT_FOUND);
+        void CompilationProfileManager::removeProfile() {
+            const auto index = m_profileList->currentRow();
+            assert(index >= 0);
 
             if (m_config.profileCount() == 1) {
-                m_profileList->SetSelection(wxNOT_FOUND);
+                m_profileList->setCurrentRow(-1);
                 m_config.removeProfile(static_cast<size_t>(index));
             } else if (index > 0) {
-                m_profileList->SetSelection(index - 1);
+                m_profileList->setCurrentRow(index - 1);
                 m_config.removeProfile(static_cast<size_t>(index));
             } else {
-                m_profileList->SetSelection(1);
+                m_profileList->setCurrentRow(1);
                 m_config.removeProfile(static_cast<size_t>(index));
-                m_profileList->SetSelection(0);
+                m_profileList->setCurrentRow(0);
             }
         }
 
-        void CompilationProfileManager::OnUpdateAddProfileButtonUI(wxUpdateUIEvent& event) {
-            event.Enable(true);
-        }
-
-        void CompilationProfileManager::OnUpdateRemoveProfileButtonUI(wxUpdateUIEvent& event) {
-            event.Enable(m_profileList->GetSelection() != wxNOT_FOUND);
-        }
-
-        void CompilationProfileManager::OnProfileSelectionChanged(wxCommandEvent& event) {
-            const int selection = m_profileList->GetSelection();
-            if (selection != wxNOT_FOUND) {
+        void CompilationProfileManager::profileSelectionChanged() {
+            const auto selection = m_profileList->currentRow();
+            if (selection >= 0) {
                 Model::CompilationProfile* profile = m_config.profile(static_cast<size_t>(selection));
                 m_profileEditor->setProfile(profile);
+                m_removeProfileButton->setEnabled(true);
             } else {
                 m_profileEditor->setProfile(nullptr);
+                m_removeProfileButton->setEnabled(false);
             }
+
+            emit selectedProfileChanged();
         }
     }
 }

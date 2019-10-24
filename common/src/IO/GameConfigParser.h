@@ -21,11 +21,10 @@
 #define TrenchBroom_GameConfigParser
 
 #include "Macros.h"
-#include "StringUtils.h"
+#include "StringType.h"
 #include "IO/ConfigParserBase.h"
 #include "Model/GameConfig.h"
 
-#include <iostream>
 #include <vector>
 
 namespace TrenchBroom {

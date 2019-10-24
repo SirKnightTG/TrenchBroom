@@ -19,9 +19,11 @@
 
 #include "EntityBrowserView.h"
 
+#include "PreferenceManager.h"
 #include "Preferences.h"
 #include "Logger.h"
 #include "StepIterator.h"
+#include "StringUtils.h"
 #include "Assets/EntityDefinition.h"
 #include "Assets/EntityDefinitionManager.h"
 #include "Assets/EntityModel.h"
@@ -38,7 +40,6 @@
 #include "Renderer/GLVertex.h"
 #include "Renderer/VertexArray.h"
 #include "View/MapFrame.h"
-#include "View/ViewUtils.h"
 #include "View/wxUtils.h"
 
 #include <vecmath/forward.h>
@@ -50,6 +51,9 @@
 
 #include <map>
 
+// allow storing std::shared_ptr in QVariant
+Q_DECLARE_METATYPE(std::shared_ptr<TrenchBroom::View::EntityCellData>)
+
 namespace TrenchBroom {
     namespace View {
         EntityCellData::EntityCellData(const Assets::PointEntityDefinition* i_entityDefinition, EntityRenderer* i_modelRenderer, const Renderer::FontDescriptor& i_fontDescriptor, const vm::bbox3f& i_bounds) :
@@ -58,21 +62,20 @@ namespace TrenchBroom {
         fontDescriptor(i_fontDescriptor),
         bounds(i_bounds) {}
 
-        EntityBrowserView::EntityBrowserView(wxWindow* parent,
-                                             wxScrollBar* scrollBar,
+        EntityBrowserView::EntityBrowserView(QScrollBar* scrollBar,
                                              GLContextManager& contextManager,
                                              Assets::EntityDefinitionManager& entityDefinitionManager,
                                              Assets::EntityModelManager& entityModelManager,
                                              Logger& logger) :
-        CellView(parent, contextManager, GLAttribs::attribs(), scrollBar),
+        CellView(contextManager, scrollBar),
         m_entityDefinitionManager(entityDefinitionManager),
         m_entityModelManager(entityModelManager),
         m_logger(logger),
         m_group(false),
         m_hideUnused(false),
         m_sortOrder(Assets::EntityDefinition::Name) {
-            const vm::quatf hRotation = vm::quatf(vm::vec3f::pos_z, vm::toRadians(-30.0f));
-            const vm::quatf vRotation = vm::quatf(vm::vec3f::pos_y, vm::toRadians(20.0f));
+            const vm::quatf hRotation = vm::quatf(vm::vec3f::pos_z(), vm::to_radians(-30.0f));
+            const vm::quatf vRotation = vm::quatf(vm::vec3f::pos_y(), vm::to_radians(20.0f));
             m_rotation = vRotation * hRotation;
 
             m_entityDefinitionManager.usageCountDidChangeNotifier.addObserver(this, &EntityBrowserView::usageCountDidChange);
@@ -83,40 +86,44 @@ namespace TrenchBroom {
         }
 
         void EntityBrowserView::setSortOrder(const Assets::EntityDefinition::SortOrder sortOrder) {
-            if (sortOrder == m_sortOrder)
+            if (sortOrder == m_sortOrder) {
                 return;
+            }
             m_sortOrder = sortOrder;
             invalidate();
-            Refresh();
+            update();
         }
 
         void EntityBrowserView::setGroup(const bool group) {
-            if (group == m_group)
+            if (group == m_group) {
                 return;
+            }
             m_group = group;
             invalidate();
-            Refresh();
+            update();
         }
 
         void EntityBrowserView::setHideUnused(const bool hideUnused) {
-            if (hideUnused == m_hideUnused)
+            if (hideUnused == m_hideUnused) {
                 return;
+            }
             m_hideUnused = hideUnused;
             invalidate();
-            Refresh();
+            update();
         }
 
         void EntityBrowserView::setFilterText(const String& filterText) {
-            if (filterText == m_filterText)
+            if (filterText == m_filterText) {
                 return;
+            }
             m_filterText = filterText;
             invalidate();
-            Refresh();
+            update();
         }
 
         void EntityBrowserView::usageCountDidChange() {
             invalidate();
-            Refresh();
+            update();
         }
 
         void EntityBrowserView::doInitLayout(Layout& layout) {
@@ -163,22 +170,10 @@ namespace TrenchBroom {
             return true;
         }
 
-        void EntityBrowserView::dndWillStart() {
-            MapFrame* mapFrame = findMapFrame(this);
-            ensure(mapFrame != nullptr, "mapFrame is null");
-            mapFrame->setToolBoxDropTarget();
-        }
-
-        void EntityBrowserView::dndDidEnd() {
-            MapFrame* mapFrame = findMapFrame(this);
-            ensure(mapFrame != nullptr, "mapFrame is null");
-            mapFrame->clearDropTarget();
-        }
-
-        wxString EntityBrowserView::dndData(const Layout::Group::Row::Cell& cell) {
-            static const String prefix("entity:");
-            const String name = cell.item().entityDefinition->name();
-            return wxString(prefix + name);
+        QString EntityBrowserView::dndData(const Cell& cell) {
+            const QString prefix("entity:");
+            const QString name = QString::fromStdString(cellData(cell).entityDefinition->name());
+            return prefix + name;
         }
 
         void EntityBrowserView::addEntityToLayout(Layout& layout, const Assets::PointEntityDefinition* definition, const Renderer::FontDescriptor& font) {
@@ -197,18 +192,18 @@ namespace TrenchBroom {
                 if (frame != nullptr) {
                     const auto bounds = frame->bounds();
                     const auto center = bounds.center();
-                    const auto transform = translationMatrix(center) * rotationMatrix(m_rotation) * translationMatrix(-center);
+                    const auto transform =vm::translation_matrix(center) * vm::rotation_matrix(m_rotation) *vm::translation_matrix(-center);
                     rotatedBounds = bounds.transform(transform);
                     modelRenderer = m_entityModelManager.renderer(spec);
                 } else {
                     rotatedBounds = vm::bbox3f(definition->bounds());
                     const auto center = rotatedBounds.center();
-                    const auto transform = translationMatrix(-center) * rotationMatrix(m_rotation) * translationMatrix(center);
+                    const auto transform =vm::translation_matrix(-center) * vm::rotation_matrix(m_rotation) *vm::translation_matrix(center);
                     rotatedBounds = rotatedBounds.transform(transform);
                 }
 
                 const auto boundsSize = rotatedBounds.size();
-                layout.addItem(EntityCellData(definition, modelRenderer, actualFont, rotatedBounds),
+                layout.addItem(QVariant::fromValue(std::make_shared<EntityCellData>(definition, modelRenderer, actualFont, rotatedBounds)),
                                boundsSize.y(),
                                boundsSize.z(),
                                actualSize.x(),
@@ -219,13 +214,13 @@ namespace TrenchBroom {
         void EntityBrowserView::doClear() {}
 
         void EntityBrowserView::doRender(Layout& layout, const float y, const float height) {
-            const float viewLeft      = static_cast<float>(GetClientRect().GetLeft());
-            const float viewTop       = static_cast<float>(GetClientRect().GetBottom());
-            const float viewRight     = static_cast<float>(GetClientRect().GetRight());
-            const float viewBottom    = static_cast<float>(GetClientRect().GetTop());
+            const float viewLeft      = static_cast<float>(0);
+            const float viewTop       = static_cast<float>(size().height());
+            const float viewRight     = static_cast<float>(size().width());
+            const float viewBottom    = static_cast<float>(0);
 
-            const vm::mat4x4f projection = vm::orthoMatrix(-1024.0f, 1024.0f, viewLeft, viewTop, viewRight, viewBottom);
-            const vm::mat4x4f view = vm::viewMatrix(vm::vec3f::neg_x, vm::vec3f::pos_z) * translationMatrix(vm::vec3f(256.0f, 0.0f, 0.0f));
+            const vm::mat4x4f projection = vm::ortho_matrix(-1024.0f, 1024.0f, viewLeft, viewTop, viewRight, viewBottom);
+            const vm::mat4x4f view = vm::view_matrix(vm::vec3f::neg_x(), vm::vec3f::pos_z()) *vm::translation_matrix(vm::vec3f(256.0f, 0.0f, 0.0f));
             Renderer::Transformation transformation(projection, view);
 
             renderBounds(layout, y, height);
@@ -266,14 +261,14 @@ namespace TrenchBroom {
                         if (row.intersectsY(y, height)) {
                             for (size_t k = 0; k < row.size(); ++k) {
                                 const auto& cell = row[k];
-                                const auto* definition = cell.item().entityDefinition;
-                                auto* modelRenderer = cell.item().modelRenderer;
+                                const auto* definition = cellData(cell).entityDefinition;
+                                auto* modelRenderer = cellData(cell).modelRenderer;
 
                                 if (modelRenderer == nullptr) {
                                     const auto itemTrans = itemTransformation(cell, y, height);
                                     const auto& color = definition->color();
                                     CollectBoundsVertices<BoundsVertex> collect(itemTrans, color, vertices);
-                                    vm::bbox3f(definition->bounds()).forEachEdge(collect);
+                                    vm::bbox3f(definition->bounds()).for_each_edge(collect);
                                 }
                             }
                         }
@@ -308,7 +303,7 @@ namespace TrenchBroom {
                         if (row.intersectsY(y, height)) {
                             for (size_t k = 0; k < row.size(); ++k) {
                                 const auto& cell = row[k];
-                                auto* modelRenderer = cell.item().modelRenderer;
+                                auto* modelRenderer = cellData(cell).modelRenderer;
 
                                 if (modelRenderer != nullptr) {
                                     const auto itemTrans = itemTransformation(cell, y, height);
@@ -323,7 +318,7 @@ namespace TrenchBroom {
         }
 
         void EntityBrowserView::renderNames(Layout& layout, const float y, const float height, const vm::mat4x4f& projection) {
-            Renderer::Transformation transformation(projection, viewMatrix(vm::vec3f::neg_z, vm::vec3f::pos_y) * translationMatrix(vm::vec3f(0.0f, 0.0f, -1.0f)));
+            Renderer::Transformation transformation(projection, vm::view_matrix(vm::vec3f::neg_z(), vm::vec3f::pos_y()) *vm::translation_matrix(vm::vec3f(0.0f, 0.0f, -1.0f)));
 
             Renderer::ActivateVbo activate(vertexVbo());
 
@@ -421,14 +416,14 @@ namespace TrenchBroom {
                                 const auto titleBounds = cell.titleBounds();
                                 const auto offset = vm::vec2f(titleBounds.left(), height - (titleBounds.top() - y) - titleBounds.height());
 
-                                Renderer::TextureFont& font = fontManager().font(cell.item().fontDescriptor);
-                                const auto quads = font.quads(cell.item().entityDefinition->name(), false, offset);
+                                Renderer::TextureFont& font = fontManager().font(cellData(cell).fontDescriptor);
+                                const auto quads = font.quads(cellData(cell).entityDefinition->name(), false, offset);
                                 const auto titleVertices = TextVertex::toList(
                                     quads.size() / 2,
                                     stepIterator(std::begin(quads), std::end(quads), 0, 2),
                                     stepIterator(std::begin(quads), std::end(quads), 1, 2),
                                     stepIterator(std::begin(textColor), std::end(textColor), 0, 0));
-                                VectorUtils::append(stringVertices[cell.item().fontDescriptor], titleVertices);
+                                VectorUtils::append(stringVertices[cellData(cell).fontDescriptor], titleVertices);
                             }
                         }
                     }
@@ -438,25 +433,31 @@ namespace TrenchBroom {
             return stringVertices;
         }
 
-        vm::mat4x4f EntityBrowserView::itemTransformation(const Layout::Group::Row::Cell& cell, const float y, const float height) const {
-            auto* definition = cell.item().entityDefinition;
+        vm::mat4x4f EntityBrowserView::itemTransformation(const Cell& cell, const float y, const float height) const {
+            auto* definition = cellData(cell).entityDefinition;
 
             const auto offset = vm::vec3f(0.0f, cell.itemBounds().left(), height - (cell.itemBounds().bottom() - y));
             const auto scaling = cell.scale();
-            const auto& rotatedBounds = cell.item().bounds;
+            const auto& rotatedBounds = cellData(cell).bounds;
             const auto rotationOffset = vm::vec3f(0.0f, -rotatedBounds.min.y(), -rotatedBounds.min.z());
             const auto boundsCenter = vm::vec3f(definition->bounds().center());
 
-            return (vm::translationMatrix(offset) *
-                    vm::scalingMatrix(vm::vec3f::fill(scaling)) *
-                    vm::translationMatrix(rotationOffset) *
-                    vm::translationMatrix(boundsCenter) *
-                    vm::rotationMatrix(m_rotation) *
-                    vm::translationMatrix(-boundsCenter));
+            return (vm::translation_matrix(offset) *
+                    vm::scaling_matrix(vm::vec3f::fill(scaling)) *
+                    vm::translation_matrix(rotationOffset) *
+                    vm::translation_matrix(boundsCenter) *
+                    vm::rotation_matrix(m_rotation) *
+                    vm::translation_matrix(-boundsCenter));
         }
 
-        wxString EntityBrowserView::tooltip(const Layout::Group::Row::Cell& cell) {
-            return cell.item().entityDefinition->name();
+        QString EntityBrowserView::tooltip(const Cell& cell) {
+            return QString::fromStdString(cellData(cell).entityDefinition->name());
+        }
+
+        const EntityCellData& EntityBrowserView::cellData(const Cell& cell) const {
+            QVariant any = cell.item();
+            auto ptr = any.value<std::shared_ptr<EntityCellData>>();
+            return *ptr;
         }
     }
 }

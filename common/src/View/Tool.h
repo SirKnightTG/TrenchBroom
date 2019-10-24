@@ -21,11 +21,9 @@
 #define TrenchBroom_Tool
 
 #include "Notifier.h"
-#include "StringUtils.h"
 
-class wxBitmap;
-class wxBookCtrlBase;
-class wxWindow;
+class QWidget;
+class QStackedLayout;
 
 namespace TrenchBroom {
     namespace View {
@@ -33,8 +31,8 @@ namespace TrenchBroom {
         private:
             bool m_active;
 
-            wxBookCtrlBase* m_book;
-            size_t m_pageIndex;
+            QStackedLayout* m_book;
+            int m_pageIndex;
         public:
             Notifier<Tool*> toolActivatedNotifier;
             Notifier<Tool*> toolDeactivatedNotifier;
@@ -50,13 +48,13 @@ namespace TrenchBroom {
 
             void refreshViews();
 
-            void createPage(wxBookCtrlBase* book);
+            void createPage(QStackedLayout* book);
             void showPage();
         private:
             virtual bool doActivate();
             virtual bool doDeactivate();
 
-            virtual wxWindow* doCreatePage(wxWindow* parent);
+            virtual QWidget* doCreatePage(QWidget* parent);
         };
     }
 }

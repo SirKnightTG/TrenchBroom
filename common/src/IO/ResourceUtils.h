@@ -20,16 +20,17 @@
 #ifndef TrenchBroom_ResourceUtils
 #define TrenchBroom_ResourceUtils
 
-#include "StringUtils.h"
-#include <wx/bitmap.h>
-#include <wx/icon.h>
+#include "StringType.h"
+
+#include <QIcon>
 
 namespace TrenchBroom {
     namespace IO {
         class Path;
-        wxBitmap loadImageResource(const String& name);
-        wxBitmap loadImageResource(const IO::Path& imagePath);
-        wxIcon loadIconResource(const IO::Path& imagePath);
+        QPixmap loadPixmapResource(const String& name);
+        QPixmap loadPixmapResource(const IO::Path& imagePath);
+
+        QIcon loadIconResourceQt(const IO::Path& imagePath);
     }
 }
 

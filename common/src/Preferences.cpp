@@ -19,11 +19,11 @@
 
 #include "Preferences.h"
 #include "IO/Path.h"
-#include "IO/SystemPaths.h"
-#include "View/ActionContext.h"
-#include "View/CommandIds.h"
+#include "View/MapViewLayout.h"
 
 #include <vecmath/util.h>
+
+#include <QKeySequence>
 
 namespace TrenchBroom {
     namespace Preferences {
@@ -157,11 +157,164 @@ namespace TrenchBroom {
 
         Preference<bool> Link2DCameras(IO::Path("Controls/Camera/Link 2D cameras"), true);
 
-        Preference<View::KeyboardShortcut> CameraFlyForward(IO::Path("Controls/Camera/Move forward"), 'W');
-        Preference<View::KeyboardShortcut> CameraFlyBackward(IO::Path("Controls/Camera/Move backward"), 'S');
-        Preference<View::KeyboardShortcut> CameraFlyLeft(IO::Path("Controls/Camera/Move left"), 'A');
-        Preference<View::KeyboardShortcut> CameraFlyRight(IO::Path("Controls/Camera/Move right"), 'D');
-        Preference<View::KeyboardShortcut> CameraFlyUp(IO::Path("Controls/Camera/Move up"), 'Q');
-        Preference<View::KeyboardShortcut> CameraFlyDown(IO::Path("Controls/Camera/Move down"), 'X');
+        Preference<QKeySequence>& CameraFlyForward() {
+            static Preference<QKeySequence> pref(IO::Path("Controls/Camera/Move forward"), QKeySequence('W'));
+            return pref;
+        }
+        Preference<QKeySequence>& CameraFlyBackward() {
+            static Preference<QKeySequence> pref(IO::Path("Controls/Camera/Move backward"), QKeySequence('S'));
+            return pref;
+        }
+        Preference<QKeySequence>& CameraFlyLeft() {
+            static Preference<QKeySequence> pref(IO::Path("Controls/Camera/Move left"), QKeySequence('A'));
+            return pref;
+        }
+        Preference<QKeySequence>& CameraFlyRight() {
+            static Preference<QKeySequence> pref(IO::Path("Controls/Camera/Move right"), QKeySequence('D'));
+            return pref;
+        }
+        Preference<QKeySequence>& CameraFlyUp() {
+            static Preference<QKeySequence> pref(IO::Path("Controls/Camera/Move up"), QKeySequence('Q'));
+            return pref;
+        }
+        Preference<QKeySequence>& CameraFlyDown() {
+            static Preference<QKeySequence> pref(IO::Path("Controls/Camera/Move down"), QKeySequence('X'));
+            return pref;
+        }
+
+        const std::vector<PreferenceBase*>& staticPreferences() {
+            static const std::vector<PreferenceBase*> list {
+                &MapViewLayout,
+                &ShowAxes,
+                &BackgroundColor,
+                &AxisLength,
+                &XAxisColor,
+                &YAxisColor,
+                &ZAxisColor,
+                &PointFileColor,
+                &PortalFileBorderColor,
+                &PortalFileFillColor,
+                &CompassBackgroundColor,
+                &CompassBackgroundOutlineColor,
+                &CompassAxisOutlineColor,
+                &CameraFrustumColor,
+                &DefaultGroupColor,
+                &TutorialOverlayTextColor,
+                &TutorialOverlayBackgroundColor,
+                &FaceColor,
+                &SelectedFaceColor,
+                &LockedFaceColor,
+                &TransparentFaceAlpha,
+                &EdgeColor,
+                &SelectedEdgeColor,
+                &OccludedSelectedEdgeColor,
+                &LockedEdgeColor,
+                &UndefinedEntityColor,
+                &SelectionBoundsColor,
+                &InfoOverlayTextColor,
+                &GroupInfoOverlayTextColor,
+                &InfoOverlayBackgroundColor,
+                &WeakInfoOverlayBackgroundColor,
+                &SelectedInfoOverlayTextColor,
+                &SelectedInfoOverlayBackgroundColor,
+                &LockedInfoOverlayTextColor,
+                &LockedInfoOverlayBackgroundColor,
+                &HandleRadius,
+                &MaximumHandleDistance,
+                &HandleColor,
+                &OccludedHandleColor,
+                &SelectedHandleColor,
+                &OccludedSelectedHandleColor,
+                &ClipHandleColor,
+                &ClipFaceColor,
+                &ResizeHandleColor,
+                &RotateHandleRadius,
+                &RotateHandleColor,
+                &ScaleHandleColor,
+                &ScaleFillColor,
+                &ScaleOutlineColor,
+                &ScaleOutlineDimColor,
+                &ShearFillColor,
+                &ShearOutlineColor,
+                &MoveTraceColor,
+                &OccludedMoveTraceColor,
+                &MoveIndicatorOutlineColor,
+                &MoveIndicatorFillColor,
+                &AngleIndicatorColor,
+                &TextureSeamColor,
+                &Brightness,
+                &GridAlpha,
+                &GridColor2D,
+                &TextureMinFilter,
+                &TextureMagFilter,
+                &TextureLock,
+                &UVLock,
+                &RendererFontPath(),
+                &RendererFontSize,
+                &BrowserFontSize,
+                &BrowserTextColor,
+                &BrowserSubTextColor,
+                &BrowserGroupBackgroundColor,
+                &TextureBrowserIconSize,
+                &TextureBrowserDefaultColor,
+                &TextureBrowserSelectedColor,
+                &TextureBrowserUsedColor,
+                &CameraLookSpeed,
+                &CameraLookInvertH,
+                &CameraLookInvertV,
+                &CameraPanSpeed,
+                &CameraPanInvertH,
+                &CameraPanInvertV,
+                &CameraMouseWheelInvert,
+                &CameraMoveSpeed,
+                &CameraEnableAltMove,
+                &CameraAltMoveInvert,
+                &CameraMoveInCursorDir,
+                &CameraFov,
+                &CameraFlyMoveSpeed,
+                &Link2DCameras,
+                &CameraFlyForward(),
+                &CameraFlyBackward(),
+                &CameraFlyLeft(),
+                &CameraFlyRight(),
+                &CameraFlyUp(),
+                &CameraFlyDown()
+            };
+
+            return list;
+        }
+
+        const std::map<IO::Path, PreferenceBase*>& staticPreferencesMap() {
+            static std::map<IO::Path, PreferenceBase*> map;
+            
+            if (map.empty()) {
+                for (PreferenceBase* pref : staticPreferences()) {
+                    map[pref->path()] = pref;
+                }
+            }
+
+            return map;
+        }
+
+        DynamicPreferencePattern<QString>      GamesPath(IO::Path("Games/*/Path"));
+        DynamicPreferencePattern<QString>      GamesDefaultEngine(IO::Path("Games/*/Default Engine"));
+        DynamicPreferencePattern<QKeySequence> FiltersTagsToggle(IO::Path("Filters/Tags/*/Toggle Visible"));
+        DynamicPreferencePattern<QKeySequence> TagsEnable(IO::Path("Tags/*/Enable"));
+        DynamicPreferencePattern<QKeySequence> TagsDisable(IO::Path("Tags/*/Disable"));
+        DynamicPreferencePattern<QKeySequence> FiltersEntitiesToggleVisible(IO::Path("Filters/Entities/*/Toggle Visible"));
+        DynamicPreferencePattern<QKeySequence> EntitiesCreate(IO::Path("Entities/*/Create"));
+
+        const std::vector<DynamicPreferencePatternBase*>& dynaimcPreferencePatterns() {
+            static const std::vector<DynamicPreferencePatternBase*> list {
+                &GamesPath,
+                &GamesDefaultEngine,
+                &FiltersTagsToggle,
+                &TagsEnable,
+                &TagsDisable,
+                &FiltersEntitiesToggleVisible,
+                &EntitiesCreate
+            };
+            return list;
+        }
     }
 }

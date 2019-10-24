@@ -20,11 +20,10 @@
 #ifndef TrenchBroom_ToolBoxConnector
 #define TrenchBroom_ToolBoxConnector
 
+#include "StringType.h"
 #include "View/InputEvent.h"
 #include "View/InputState.h"
 #include "View/PickRequest.h"
-
-#include <wx/gdicmn.h>
 
 namespace TrenchBroom {
     namespace Model {
@@ -56,19 +55,19 @@ namespace TrenchBroom {
             ToolBoxConnector();
             ~ToolBoxConnector() override;
 
+        public:
             const vm::ray3& pickRay() const;
             const Model::PickResult& pickResult() const;
 
             void updatePickResult();
-            void updateLastActivation();
         protected:
             void setToolBox(ToolBox& toolBox);
             void addTool(ToolController* tool);
         public: // drag and drop
-            bool dragEnter(wxCoord x, wxCoord y, const String& text);
-            bool dragMove(wxCoord x, wxCoord y, const String& text);
+            bool dragEnter(int x, int y, const String& text);
+            bool dragMove(int x, int y, const String& text);
             void dragLeave();
-            bool dragDrop(wxCoord x, wxCoord y, const String& text);
+            bool dragDrop(int x, int y, const String& text);
         public: // cancel
             bool cancel();
         protected: // rendering

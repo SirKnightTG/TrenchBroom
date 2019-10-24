@@ -20,17 +20,17 @@
 #ifndef TrenchBroom_TextureBrowser
 #define TrenchBroom_TextureBrowser
 
-#include "StringUtils.h"
+#include "StringType.h"
 #include "Assets/TextureManager.h"
 #include "View/TextureBrowserView.h"
 #include "View/ViewTypes.h"
 
-#include <wx/panel.h>
+#include <QWidget>
 
-class wxChoice;
-class wxToggleButton;
-class wxSearchCtrl;
-class wxScrollBar;
+class QPushButton;
+class QComboBox;
+class QLineEdit;
+class QScrollBar;
 
 namespace TrenchBroom {
     namespace Assets {
@@ -44,20 +44,20 @@ namespace TrenchBroom {
     namespace View {
         class GLContextManager;
         class TextureBrowserView;
-        class TextureSelectedCommand;
 
-        class TextureBrowser : public wxPanel {
+        class TextureBrowser : public QWidget {
+            Q_OBJECT
         private:
             MapDocumentWPtr m_document;
-            wxChoice* m_sortOrderChoice;
-            wxToggleButton* m_groupButton;
-            wxToggleButton* m_usedButton;
-            wxSearchCtrl* m_filterBox;
-            wxScrollBar* m_scrollBar;
+            QComboBox* m_sortOrderChoice;
+            QPushButton* m_groupButton;
+            QPushButton* m_usedButton;
+            QLineEdit* m_filterBox;
+            QScrollBar* m_scrollBar;
             TextureBrowserView* m_view;
         public:
-            TextureBrowser(wxWindow* parent, MapDocumentWPtr document, GLContextManager& contextManager);
-            ~TextureBrowser();
+            TextureBrowser(MapDocumentWPtr document, GLContextManager& contextManager, QWidget* parent = nullptr);
+            ~TextureBrowser() override;
 
             Assets::Texture* selectedTexture() const;
             void setSelectedTexture(Assets::Texture* selectedTexture);
@@ -66,12 +66,8 @@ namespace TrenchBroom {
             void setGroup(bool group);
             void setHideUnused(bool hideUnused);
             void setFilterText(const String& filterText);
-
-            void OnSortOrderChanged(wxCommandEvent& event);
-            void OnGroupButtonToggled(wxCommandEvent& event);
-            void OnUsedButtonToggled(wxCommandEvent& event);
-            void OnFilterPatternChanged(wxCommandEvent& event);
-            void OnTextureSelected(TextureSelectedCommand& event);
+        signals:
+            void textureSelected(Assets::Texture* texture);
         private:
             void createGui(GLContextManager& contextManager);
             void bindEvents();

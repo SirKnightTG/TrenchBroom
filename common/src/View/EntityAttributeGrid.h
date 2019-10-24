@@ -23,69 +23,62 @@
 #include "Model/ModelTypes.h"
 #include "View/ViewTypes.h"
 
-#include <wx/grid.h>
-#include <wx/panel.h>
+#include <QWidget>
 
-class wxButton;
-class wxCheckBox;
-class wxWindow;
+class QTableView;
+class QCheckBox;
+class QAbstractButton;
+class QShortcut;
 
 namespace TrenchBroom {
     namespace View {
-        class EntityAttributeGridTable;
+        class EntityAttributeModel;
         class Selection;
 
-        class EntityAttributeGrid : public wxPanel {
+        /**
+         * Panel with the entity attribute table, and the toolbar below it (add/remove icons,
+         * "show default properties" checkbox, etc.)
+         */
+        class EntityAttributeGrid : public QWidget {
+            Q_OBJECT
         private:
             MapDocumentWPtr m_document;
 
-            EntityAttributeGridTable* m_table;
-            wxGrid* m_grid;
-            wxGridCellCoords m_lastHoveredCell;
+            EntityAttributeModel* m_model;
+            QTableView* m_table;
+            QAbstractButton* m_addAttributeButton;
+            QAbstractButton* m_removePropertiesButton;
+            QCheckBox* m_showDefaultPropertiesCheckBox;
+
+            QShortcut* m_insertRowShortcut;
+            QShortcut* m_removeRowShortcut;
+            QShortcut* m_removeRowAlternateShortcut;
+            QShortcut* m_openCellEditorShortcut;
 
             bool m_ignoreSelection;
-            Model::AttributeName m_lastSelectedName;
-            int m_lastSelectedCol;
         public:
-            EntityAttributeGrid(wxWindow* parent, MapDocumentWPtr document);
-            ~EntityAttributeGrid();
+            explicit EntityAttributeGrid(MapDocumentWPtr document, QWidget* parent = nullptr);
+            ~EntityAttributeGrid() override;
         private:
-            void OnAttributeGridSize(wxSizeEvent& event);
-            void OnAttributeGridSelectCell(wxGridEvent& event);
-            void OnAttributeGridTab(wxGridEvent& event);
+//            void OnAttributeGridSize(wxSizeEvent& event);
+//            void OnAttributeGridSelectCell(wxGridEvent& event);
+//            void OnAttributeGridTab(wxGridEvent& event);
         public:
-            void tabNavigate(int row, int col, bool forward);
-            void setLastSelectedNameAndColumn(const Model::AttributeName& name, const int col);
+//            void tabNavigate(int row, int col, bool forward);
         private:
-            void moveCursorTo(int row, int col);
-            void fireSelectionEvent(int row, int col);
+//            void moveCursorTo(int row, int col);
+//            void fireSelectionEvent(int row, int col);
         private:
-            void OnAttributeGridKeyDown(wxKeyEvent& event);
-            void OnAttributeGridKeyUp(wxKeyEvent& event);
-            bool isInsertRowShortcut(const wxKeyEvent& event) const;
-            bool isRemoveRowShortcut(const wxKeyEvent& event) const;
-            bool isOpenCellEditorShortcut(const wxKeyEvent& event) const;
-        private:
-            void OnAttributeGridMouseMove(wxMouseEvent& event);
-
-            void OnUpdateAttributeView(wxUpdateUIEvent& event);
-
-            void OnAddAttributeButton(wxCommandEvent& event);
-            void OnRemovePropertiesButton(wxCommandEvent& event);
-
             void addAttribute();
             void removeSelectedAttributes();
             void removeAttribute(const String& key);
-
-            void OnShowDefaultPropertiesCheckBox(wxCommandEvent& event);
-            void OnUpdateAddAttributeButton(wxUpdateUIEvent& event);
-            void OnUpdateRemovePropertiesButton(wxUpdateUIEvent& event);
-            void OnUpdateShowDefaultPropertiesCheckBox(wxUpdateUIEvent& event);
 
             bool canRemoveSelectedAttributes() const;
             std::set<int> selectedRowsAndCursorRow() const;
         private:
             void createGui(MapDocumentWPtr document);
+            void createShortcuts();
+            void updateShortcuts();
 
             void bindObservers();
             void unbindObservers();
@@ -98,9 +91,9 @@ namespace TrenchBroom {
         private:
             void updateControls();
         public:
-            wxGrid* gridWindow() const;
-        public:
             Model::AttributeName selectedRowName() const;
+        signals:
+            void selectedRow();
         };
     }
 }

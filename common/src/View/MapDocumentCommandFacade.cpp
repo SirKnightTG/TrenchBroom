@@ -711,9 +711,10 @@ namespace TrenchBroom {
 
         void MapDocumentCommandFacade::performChangeBrushFaceAttributes(const Model::ChangeBrushFaceAttributesRequest& request) {
             const auto& faces = allSelectedBrushFaces();
-            request.evaluate(faces);
-            setTextures(faces);
-            brushFacesDidChangeNotifier(faces);
+            if (request.evaluate(faces)) {
+                setTextures(faces);
+                brushFacesDidChangeNotifier(faces);
+            }
         }
 
         bool MapDocumentCommandFacade::performFindPlanePoints() {
@@ -967,6 +968,8 @@ namespace TrenchBroom {
             m_commandProcessor.commandUndoNotifier.addObserver(commandUndoNotifier);
             m_commandProcessor.commandUndoneNotifier.addObserver(commandUndoneNotifier);
             m_commandProcessor.commandUndoFailedNotifier.addObserver(commandUndoFailedNotifier);
+            m_commandProcessor.transactionDoneNotifier.addObserver(transactionDoneNotifier);
+            m_commandProcessor.transactionUndoneNotifier.addObserver(transactionUndoneNotifier);
             documentWasNewedNotifier.addObserver(this, &MapDocumentCommandFacade::documentWasNewed);
             documentWasLoadedNotifier.addObserver(this, &MapDocumentCommandFacade::documentWasLoaded);
         }
@@ -1001,6 +1004,10 @@ namespace TrenchBroom {
 
         void MapDocumentCommandFacade::doRedoNextCommand() {
             m_commandProcessor.redoNextCommand();
+        }
+
+        bool MapDocumentCommandFacade::doHasRepeatableCommands() const {
+            return m_commandProcessor.hasRepeatableCommands();
         }
 
         bool MapDocumentCommandFacade::doRepeatLastCommands() {

@@ -25,9 +25,9 @@
 #include "View/MapViewContainer.h"
 #include "View/ViewTypes.h"
 
-#include <wx/panel.h>
-
 #include <vector>
+
+class QStackedLayout;
 
 namespace TrenchBroom {
     class Logger;
@@ -42,6 +42,7 @@ namespace TrenchBroom {
         class MapViewToolBox;
 
         class CyclingMapView : public MapViewContainer, public CameraLinkableView {
+            Q_OBJECT
         public:
             typedef enum {
                 View_3D  = 1,
@@ -59,21 +60,21 @@ namespace TrenchBroom {
             using MapViewList = std::vector<MapViewBase*>;
             MapViewList m_mapViews;
             MapViewBase* m_currentMapView;
+
+            QStackedLayout* m_layout;
         public:
-            CyclingMapView(wxWindow* parent, Logger* logger, MapDocumentWPtr document, MapViewToolBox& toolBox, Renderer::MapRenderer& mapRenderer, GLContextManager& contextManager, View views);
+            CyclingMapView(MapDocumentWPtr document, MapViewToolBox& toolBox,
+                           Renderer::MapRenderer& mapRenderer, GLContextManager& contextManager,
+                           View views, Logger* logger, QWidget* parent = nullptr);
         private:
             void createGui(MapViewToolBox& toolBox, Renderer::MapRenderer& mapRenderer, GLContextManager& contextManager, View views);
-        private:
-            void bindEvents();
-            void OnCycleMapView(wxCommandEvent& event);
+            void addMapView(MapViewBase* mapView);
         private:
             void switchToMapView(MapViewBase* mapView);
         private: // implement ViewEffectsService interface
             void doFlashSelection() override;
         private: // implement MapView interface
             bool doGetIsCurrent() const override;
-            void doSetToolBoxDropTarget() override;
-            void doClearDropTarget() override;
             bool doCanSelectTall() override;
             void doSelectTall() override;
             void doFocusCameraOnSelection(bool animate) override;
@@ -84,9 +85,13 @@ namespace TrenchBroom {
             void doToggleMaximizeCurrentView() override;
 
             bool doCancelMouseDrag() override;
-
+            void doRefreshViews() override;
         private: // implement MapViewContainer interface
+            void doInstallActivationTracker(MapViewActivationTracker& activationTracker) override;
             MapView* doGetCurrentMapView() const override;
+            MapViewBase* doGetFirstMapViewBase() override;
+        public:
+            void cycleChildMapView(MapView* after) override;
         private: // implement CameraLinkableView interface
             void doLinkCamera(CameraLinkHelper& linkHelper) override;
         };

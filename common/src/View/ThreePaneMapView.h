@@ -24,7 +24,7 @@
 #include "View/MultiMapView.h"
 #include "View/ViewTypes.h"
 
-class wxWindow;
+class QSplitter;
 
 namespace TrenchBroom {
     class Logger;
@@ -41,21 +41,23 @@ namespace TrenchBroom {
         class MapView2D;
         class MapView3D;
         class MapViewToolBox;
-        class SplitterWindow2;
 
         class ThreePaneMapView : public MultiMapView {
+            Q_OBJECT
         private:
             Logger* m_logger;
             MapDocumentWPtr m_document;
 
             CameraLinkHelper m_linkHelper;
-            SplitterWindow2* m_hSplitter;
-            SplitterWindow2* m_vSplitter;
+            QSplitter* m_hSplitter;
+            QSplitter* m_vSplitter;
             MapView3D* m_mapView3D;
             MapView2D* m_mapViewXY;
             CyclingMapView* m_mapViewZZ;
         public:
-            ThreePaneMapView(wxWindow* parent, Logger* logger, MapDocumentWPtr document, MapViewToolBox& toolBox, Renderer::MapRenderer& mapRenderer, GLContextManager& contextManager);
+            ThreePaneMapView(MapDocumentWPtr document, MapViewToolBox& toolBox, Renderer::MapRenderer& mapRenderer,
+                             GLContextManager& contextManager, Logger* logger, QWidget* parent = nullptr);
+            ~ThreePaneMapView() override;
         private:
             void createGui(MapViewToolBox& toolBox, Renderer::MapRenderer& mapRenderer, GLContextManager& contextManager);
         private: // implement MultiMapView subclassing interface

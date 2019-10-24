@@ -22,18 +22,19 @@
 
 #include "View/ViewTypes.h"
 
-#include <wx/dialog.h>
+#include <QDialog>
 
-class wxPanel;
-class wxSimplebook;
-class wxToolBar;
-class wxToolBarToolBase;
+class QDialogButtonBox;
+class QStackedWidget;
+class QToolBar;
+class QWidget;
 
 namespace TrenchBroom {
     namespace View {
         class PreferencePane;
 
-        class PreferenceDialog : public wxDialog {
+        class PreferenceDialog : public QDialog {
+            Q_OBJECT
         private:
             typedef enum {
                 PrefPane_First = 0,
@@ -45,34 +46,20 @@ namespace TrenchBroom {
             } PrefPane;
 
             MapDocumentSPtr m_document;
-            wxToolBar* m_toolBar;
-            wxSimplebook* m_book;
+            QToolBar* m_toolBar;
+            QStackedWidget* m_stackedWidget;
+            QDialogButtonBox* m_buttonBox;
         public:
-            explicit PreferenceDialog(MapDocumentSPtr document);
-            bool Create();
-        private:
-            void OnToolClicked(wxCommandEvent& event);
-            void OnOKClicked(wxCommandEvent& event);
-            void OnApplyClicked(wxCommandEvent& event);
-            void OnCancelClicked(wxCommandEvent& event);
-            void OnFileClose(wxCommandEvent& event);
-            void OnUpdateFileClose(wxUpdateUIEvent& event);
+            explicit PreferenceDialog(MapDocumentSPtr document, QWidget* parent = nullptr);
 
-            void OnResetClicked(wxCommandEvent& event);
-            void OnUpdateReset(wxUpdateUIEvent& event);
-
-            void OnClose(wxCloseEvent& event);
+        protected: // QWidget overrides
+            void closeEvent(QCloseEvent* event) override;
         private:
             void createGui();
-            void bindEvents();
-
             void switchToPane(PrefPane pane);
-            void toggleTools(PrefPane pane);
-
             PreferencePane* currentPane() const;
-            PrefPane currentPaneId() const;
-
-            void updateAcceleratorTable(PrefPane pane);
+        private slots:
+            void resetToDefaults();
         };
     }
 }

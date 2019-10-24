@@ -20,8 +20,7 @@
 #ifndef VariableStore_h
 #define VariableStore_h
 
-#include "Macros.h"
-#include "StringUtils.h"
+#include "StringType.h"
 #include "EL/Value.h"
 
 namespace TrenchBroom {

@@ -20,15 +20,14 @@
 #ifndef TrenchBroom_SmartAttributeEditorManager
 #define TrenchBroom_SmartAttributeEditorManager
 
-#include "SharedPointer.h"
 #include "Model/ModelTypes.h"
 #include "View/ViewTypes.h"
 
 #include <vector>
 
-#include <wx/panel.h>
+#include <QWidget>
 
-class wxWindow;
+class QStackedLayout;
 
 namespace TrenchBroom {
     namespace View {
@@ -36,9 +35,9 @@ namespace TrenchBroom {
         class SmartAttributeEditor;
         class SmartAttributeEditorMatcher;
 
-        class SmartAttributeEditorManager : public wxPanel {
+        class SmartAttributeEditorManager : public QWidget {
         private:
-            using EditorPtr = std::shared_ptr<SmartAttributeEditor>;
+            using EditorPtr = SmartAttributeEditor*;
             using MatcherPtr = std::shared_ptr<SmartAttributeEditorMatcher>;
             using MatcherEditorPair = std::pair<MatcherPtr, EditorPtr>;
             using EditorList = std::vector<MatcherEditorPair>;
@@ -47,14 +46,15 @@ namespace TrenchBroom {
 
             EditorList m_editors;
             Model::AttributeName m_name;
-            EditorPtr m_activeEditor;
+            QStackedLayout* m_stackedLayout;
         public:
-            SmartAttributeEditorManager(wxWindow* parent, View::MapDocumentWPtr document);
+            explicit SmartAttributeEditorManager(View::MapDocumentWPtr document, QWidget* parent = nullptr);
             ~SmartAttributeEditorManager();
 
             void switchEditor(const Model::AttributeName& name, const Model::AttributableNodeList& attributables);
             bool isDefaultEditorActive() const;
         private:
+            SmartAttributeEditor* activeEditor() const;
             void createEditors();
 
             void bindObservers();

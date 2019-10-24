@@ -19,7 +19,6 @@
 
 #include "PrimitiveRenderer.h"
 
-#include "TrenchBroom.h"
 #include "Color.h"
 #include "Renderer/RenderContext.h"
 #include "Renderer/RenderUtils.h"
@@ -228,8 +227,8 @@ namespace TrenchBroom {
             const float len = vm::length(vec);
             const vm::vec3f dir = vec / len;
 
-            const vm::mat4x4f translation = vm::translationMatrix(start);
-            const vm::mat4x4f rotation    = vm::rotationMatrix(vm::vec3f::pos_z, dir);
+            const vm::mat4x4f translation = vm::translation_matrix(start);
+            const vm::mat4x4f rotation    = vm::rotation_matrix(vm::vec3f::pos_z(), dir);
             const vm::mat4x4f transform   = translation * rotation;
 
             const VertsAndNormals cylinder = cylinder3D(radius, len, segments);

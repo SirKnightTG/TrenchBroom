@@ -19,162 +19,356 @@
 
 #include "wxUtils.h"
 
+#include "Ensure.h"
 #include "IO/Path.h"
 #include "IO/ResourceUtils.h"
-#include "View/BitmapStaticButton.h"
-#include "View/BitmapToggleButton.h"
 #include "View/BorderLine.h"
 #include "View/MapFrame.h"
 #include "View/ViewConstants.h"
 
-#include <wx/bitmap.h>
-#include <wx/frame.h>
-#include <wx/listctrl.h>
-#include <wx/settings.h>
-#include <wx/sizer.h>
-#include <wx/stattext.h>
-#include <wx/tglbtn.h>
-#include <wx/window.h>
-
-#include <list>
-#include <cstdlib>
+#include <QApplication>
+#include <QBoxLayout>
+#include <QDebug>
+#include <QDir>
+#include <QDesktopWidget>
+#include <QFont>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPalette>
+#include <QSettings>
+#include <QString>
+#include <QStringBuilder>
+#include <QStandardPaths>
+#include <QToolButton>
+#include <QAbstractButton>
+#include <QButtonGroup>
+#include <QTableView>
 
 namespace TrenchBroom {
     namespace View {
-        MapFrame* findMapFrame(wxWindow* window) {
-            return wxDynamicCast(findFrame(window), MapFrame);
+        DisableWindowUpdates::DisableWindowUpdates(QWidget* widget) :
+        m_widget(widget) {
+            m_widget->setUpdatesEnabled(false);
         }
 
-        wxFrame* findFrame(wxWindow* window) {
-            if (window == nullptr)
-                return nullptr;
-            return wxDynamicCast(wxGetTopLevelParent(window), wxFrame);
+        DisableWindowUpdates::~DisableWindowUpdates() {
+            m_widget->setUpdatesEnabled(true);
         }
 
-        void fitAll(wxWindow* window) {
-            for (wxWindow* child : window->GetChildren())
-                fitAll(child);
-            window->Fit();
+        QString windowSettingsPath(const QWidget* window, const QString& suffix) {
+            ensure(window != nullptr, "window must not be null");
+            ensure(!window->objectName().isEmpty(), "window name must not be empty");
+
+            return "Windows/" + window->objectName() + "/" + suffix;
         }
 
-        wxColor makeLighter(const wxColor& color) {
-            wxColor result = color.ChangeLightness(130);
-            if (std::abs(result.Red()   - color.Red())   < 25 &&
-                std::abs(result.Green() - color.Green()) < 25 &&
-                std::abs(result.Blue()  - color.Blue())  < 25)
-                result = color.ChangeLightness(70);
-            return result;
+        void saveWindowGeometry(QWidget* window) {
+            ensure(window != nullptr, "window must not be null");
+
+            const auto path = windowSettingsPath(window, "Geometry");
+            QSettings settings;
+            settings.setValue(path, window->saveGeometry());
         }
 
-        Color fromWxColor(const wxColor& color) {
-            const float r = static_cast<float>(color.Red())   / 255.0f;
-            const float g = static_cast<float>(color.Green()) / 255.0f;
-            const float b = static_cast<float>(color.Blue())  / 255.0f;
-            const float a = static_cast<float>(color.Alpha()) / 255.0f;
-            return Color(r, g, b, a);
+        void restoreWindowGeometry(QWidget* window) {
+            ensure(window != nullptr, "window must not be null");
+
+            const auto path = windowSettingsPath(window, "Geometry");
+            QSettings settings;
+            window->restoreGeometry(settings.value(path).toByteArray());
         }
 
-        wxColor toWxColor(const Color& color) {
-            const unsigned char r = static_cast<unsigned char>(color.r() * 255.0f);
-            const unsigned char g = static_cast<unsigned char>(color.g() * 255.0f);
-            const unsigned char b = static_cast<unsigned char>(color.b() * 255.0f);
-            const unsigned char a = static_cast<unsigned char>(color.a() * 255.0f);
-            return wxColor(r, g, b, a);
+        MapFrame* findMapFrame(QWidget* widget) {
+            return dynamic_cast<MapFrame*>(widget->window());
         }
 
-        std::vector<size_t> getListCtrlSelection(const wxListCtrl* listCtrl) {
-            ensure(listCtrl != nullptr, "listCtrl is null");
-
-            std::vector<size_t> result(static_cast<size_t>(listCtrl->GetSelectedItemCount()));
-
-            size_t i = 0;
-            long itemIndex = listCtrl->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-            while (itemIndex >= 0) {
-                result[i++] = static_cast<size_t>(itemIndex);
-                itemIndex = listCtrl->GetNextItem(itemIndex, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-            }
-            return result;
+        void setHint(QLineEdit* ctrl, const char* hint) {
+            ctrl->setPlaceholderText(hint);
         }
 
-        void deselectAllListrCtrlItems(wxListCtrl* listCtrl) {
-            for (const auto index : getListCtrlSelection(listCtrl)) {
-                listCtrl->SetItemState(static_cast<long>(index), 0, wxLIST_STATE_SELECTED);
-            }
+        void centerOnScreen(QWidget* window) {
+            window->setGeometry(
+                QStyle::alignedRect(
+                    Qt::LeftToRight,
+                    Qt::AlignCenter,
+                    window->size(),
+                    QApplication::desktop()->availableGeometry()
+                )
+            );
         }
 
-        wxWindow* createBitmapButton(wxWindow* parent, const String& image, const String& tooltip) {
-            auto bitmap = IO::loadImageResource(image);
+        QWidget* makeDefault(QWidget* widget) {
+            widget->setFont(QFont());
+            widget->setPalette(QPalette());
+            return widget;
+        }
 
-            auto* button = new BitmapStaticButton(parent, wxID_ANY, bitmap);
-            button->SetToolTip(tooltip);
+        QWidget* makeEmphasized(QWidget* widget) {
+            auto font = widget->font();
+            font.setBold(true);
+            widget->setFont(font);
+            return widget;
+        }
+
+        QWidget* makeUnemphasized(QWidget* widget) {
+            widget->setFont(QFont());
+            return widget;
+        }
+
+        QWidget* makeInfo(QWidget* widget) {
+            makeDefault(widget);
+
+            auto font = widget->font();
+            font.setPointSize(font.pointSize() - 2);
+            widget->setFont(font);
+
+            const auto defaultPalette = QPalette();
+            auto palette = widget->palette();
+            palette.setColor(QPalette::Normal, QPalette::WindowText, defaultPalette.color(QPalette::Disabled, QPalette::WindowText));
+            palette.setColor(QPalette::Normal, QPalette::Text, defaultPalette.color(QPalette::Disabled, QPalette::WindowText));
+            widget->setPalette(palette);
+            return widget;
+        }
+
+        QWidget* makeHeader(QWidget* widget) {
+            makeDefault(widget);
+
+            auto font = widget->font();
+            font.setPointSize(2 * font.pointSize());
+            font.setBold(true);
+            widget->setFont(font);
+            return widget;
+        }
+
+        QWidget* makeError(QWidget* widget) {
+            auto palette = widget->palette();
+            palette.setColor(QPalette::Normal, QPalette::WindowText, Qt::red);
+            palette.setColor(QPalette::Normal, QPalette::Text, Qt::red);
+            widget->setPalette(palette);
+            return widget;
+        }
+
+        QWidget* makeSelected(QWidget* widget) {
+            const auto defaultPalette = QPalette();
+            auto palette = widget->palette();
+            palette.setColor(QPalette::Normal, QPalette::WindowText, defaultPalette.color(QPalette::Normal, QPalette::HighlightedText));
+            palette.setColor(QPalette::Normal, QPalette::Text, defaultPalette.color(QPalette::Normal, QPalette::HighlightedText));
+            widget->setPalette(palette);
+            return widget;
+        }
+
+        QWidget* makeUnselected(QWidget* widget) {
+            const auto defaultPalette = QPalette();
+            auto palette = widget->palette();
+            palette.setColor(QPalette::Normal, QPalette::WindowText, defaultPalette.color(QPalette::Normal, QPalette::WindowText));
+            palette.setColor(QPalette::Normal, QPalette::Text, defaultPalette.color(QPalette::Normal, QPalette::Text));
+            widget->setPalette(palette);
+            return widget;
+        }
+
+        QSettings& getSettings() {
+            static auto settings =
+#if defined __linux__ || defined __FreeBSD__
+                QSettings(QDir::homePath() % QString::fromLocal8Bit("/.TrenchBroom/.preferences"), QSettings::Format::IniFormat);
+#elif defined __APPLE__
+                QSettings(QStandardPaths::locate(QStandardPaths::ConfigLocation,
+                                                 QString::fromLocal8Bit("TrenchBroom Preferences"),
+                                                 QStandardPaths::LocateOption::LocateFile), QSettings::Format::IniFormat);
+#else
+                QSettings();
+#endif
+            return settings;
+        }
+
+        Color fromQColor(const QColor& color) {
+            return Color(static_cast<float>(color.redF()),
+                         static_cast<float>(color.greenF()),
+                         static_cast<float>(color.blueF()),
+                         static_cast<float>(color.alphaF()));
+        }
+
+        QColor toQColor(const Color& color) {
+            return QColor::fromRgb(int(color.r() * 255.0f), int(color.g() * 255.0f), int(color.b() * 255.0f), int(color.a() * 255.0f));
+        }
+
+        QAbstractButton* createBitmapButton(const String& image, const QString& tooltip, QWidget* parent) {
+            return createBitmapButton(loadIconResourceQt(IO::Path(image)), tooltip, parent);
+        }
+
+        QAbstractButton* createBitmapButton(const QIcon& icon, const QString& tooltip, QWidget* parent) {
+            ensure(!icon.availableSizes().empty(), "expected a non-empty icon. Fails when the image file couldn't be found.");
+
+            // NOTE: according to http://doc.qt.io/qt-5/qpushbutton.html this would be more correctly
+            // be a QToolButton, but the QToolButton doesn't have a flat style on macOS
+            auto* button = new QToolButton(parent);
+            button->setMinimumSize(icon.availableSizes().front());
+            // button->setAutoDefault(false);
+            button->setToolTip(tooltip);
+            button->setIcon(icon);
+            // button->setFlat(true);
+            button->setStyleSheet("QToolButton { border: none; }");
+
             return button;
         }
 
-        wxWindow* createBitmapToggleButton(wxWindow* parent, const String& upImage, const String& downImage, const String& tooltip) {
-            auto upBitmap = IO::loadImageResource(upImage);
-            auto downBitmap = IO::loadImageResource(downImage);
-
-            auto* button = new BitmapToggleButton(parent, wxID_ANY, upBitmap, downBitmap);
-            button->SetToolTip(tooltip);
+        QAbstractButton* createBitmapToggleButton(const String& image, const QString& tooltip, QWidget* parent) {
+            auto* button = createBitmapButton(image, tooltip, parent);
+            button->setCheckable(true);
             return button;
         }
 
-        wxWindow* createDefaultPage(wxWindow* parent, const wxString& message) {
-            wxPanel* containerPanel = new wxPanel(parent);
+        QWidget* createDefaultPage(const QString& message, QWidget* parent) {
+            auto* container = new QWidget(parent);
+            auto* layout = new QVBoxLayout();
 
-            wxStaticText* messageText = new wxStaticText(containerPanel, wxID_ANY, message);
-            messageText->SetFont(messageText->GetFont().Bold());
-            messageText->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+            auto* messageLabel = new QLabel(message);
+            makeEmphasized(messageLabel);
+            layout->addWidget(messageLabel, 0, Qt::AlignHCenter | Qt::AlignTop);
+            container->setLayout(layout);
 
-            wxSizer* justifySizer = new wxBoxSizer(wxHORIZONTAL);
-            justifySizer->AddStretchSpacer();
-            justifySizer->AddSpacer(LayoutConstants::WideHMargin);
-            justifySizer->Add(messageText, wxSizerFlags().Expand());
-            justifySizer->AddSpacer(LayoutConstants::WideHMargin);
-            justifySizer->AddStretchSpacer();
-
-            wxSizer* containerSizer = new wxBoxSizer(wxVERTICAL);
-            containerSizer->AddSpacer(LayoutConstants::WideVMargin);
-            containerSizer->Add(justifySizer, wxSizerFlags().Expand());
-            containerSizer->AddSpacer(LayoutConstants::WideVMargin);
-            containerSizer->AddStretchSpacer();
-
-            containerPanel->SetSizer(containerSizer);
-            return containerPanel;
+            return container;
         }
 
-        wxSizer* wrapDialogButtonSizer(wxSizer* buttonSizer, wxWindow* parent) {
-            wxSizer* hSizer = new wxBoxSizer(wxHORIZONTAL);
-            hSizer->AddSpacer(LayoutConstants::DialogButtonLeftMargin);
-            hSizer->Add(buttonSizer, wxSizerFlags().Expand().Proportion(1));
-            hSizer->AddSpacer(LayoutConstants::DialogButtonRightMargin);
-
-            wxSizer* vSizer = new wxBoxSizer(wxVERTICAL);
-            vSizer->Add(new BorderLine(parent, BorderLine::Direction_Horizontal), wxSizerFlags().Expand());
-            vSizer->AddSpacer(LayoutConstants::DialogButtonTopMargin);
-            vSizer->Add(hSizer, wxSizerFlags().Expand());
-            vSizer->AddSpacer(LayoutConstants::DialogButtonBottomMargin);
-            return vSizer;
+        QSlider* createSlider(const int min, const int max) {
+            auto* slider = new QSlider();
+            slider->setMinimum(min);
+            slider->setMaximum(max);
+            slider->setTickPosition(QSlider::TicksBelow);
+            slider->setTracking(true);
+            slider->setOrientation(Qt::Horizontal);
+            return slider;
         }
 
-        void setWindowIcon(wxTopLevelWindow* window) {
+        float getSliderRatio(const QSlider* slider) {
+            return float(slider->value() - slider->minimum()) / float(slider->maximum() - slider->minimum());
+        }
+
+        void setSliderRatio(QSlider* slider, float ratio) {
+            const auto value = ratio * float(slider->maximum() - slider->minimum()) + float(slider->minimum());
+            slider->setValue(int(value));
+        }
+
+        QLayout* wrapDialogButtonBox(QWidget* buttonBox) {
+            auto* innerLayout = new QHBoxLayout();
+            innerLayout->setContentsMargins(
+                LayoutConstants::DialogButtonLeftMargin,
+                LayoutConstants::DialogButtonTopMargin,
+                LayoutConstants::DialogButtonRightMargin,
+                LayoutConstants::DialogButtonBottomMargin);
+            innerLayout->setSpacing(0);
+            innerLayout->addWidget(buttonBox);
+
+            auto* outerLayout = new QVBoxLayout();
+            outerLayout->setContentsMargins(QMargins());
+            outerLayout->setSpacing(0);
+            outerLayout->addWidget(new BorderLine(BorderLine::Direction_Horizontal));
+            outerLayout->addLayout(innerLayout);
+
+            return outerLayout;
+        }
+
+        QLayout* wrapDialogButtonBox(QLayout* buttonBox) {
+            auto* innerLayout = new QHBoxLayout();
+            innerLayout->setContentsMargins(
+                LayoutConstants::DialogButtonLeftMargin,
+                LayoutConstants::DialogButtonTopMargin,
+                LayoutConstants::DialogButtonRightMargin,
+                LayoutConstants::DialogButtonBottomMargin);
+            innerLayout->setSpacing(0);
+            innerLayout->addLayout(buttonBox);
+
+            auto* outerLayout = new QVBoxLayout();
+            outerLayout->setContentsMargins(QMargins());
+            outerLayout->setSpacing(0);
+            outerLayout->addWidget(new BorderLine(BorderLine::Direction_Horizontal));
+            outerLayout->addLayout(innerLayout);
+
+            return outerLayout;
+        }
+
+        void addToMiniToolBarLayout(QBoxLayout*) {}
+
+        void setWindowIconTB(QWidget* window) {
             ensure(window != nullptr, "window is null");
-            window->SetIcon(IO::loadIconResource(IO::Path("Resources/WindowIcon")));
+            window->setWindowIcon(IO::loadIconResourceQt(IO::Path("AppIcon.png")));
         }
 
-        wxArrayString filterBySuffix(const wxArrayString& strings, const wxString& suffix, const bool caseSensitive) {
-            wxArrayString result;
-            for (size_t i = 0; i < strings.size(); ++i) {
-                const wxString& str = strings[i];
-                if (caseSensitive) {
-                    if (str.EndsWith(suffix))
-                        result.Add(str);
-                } else {
-                    if (str.Lower().EndsWith(suffix.Lower()))
-                        result.Add(str);
-                }
+        void setDebugBackgroundColor(QWidget* widget, const QColor& color) {
+            QPalette p = widget->palette();
+            p.setColor(QPalette::Window, color);
+
+            widget->setAutoFillBackground(true);
+            widget->setPalette(p);
+        }
+
+        void setDefaultWindowColor(QWidget* widget) {
+            auto palette = QPalette();
+            palette.setColor(QPalette::Window, palette.color(QPalette::Normal, QPalette::Window));
+            widget->setAutoFillBackground(true);
+            widget->setPalette(palette);
+        }
+
+        void setBaseWindowColor(QWidget* widget) {
+            auto palette = QPalette();
+            palette.setColor(QPalette::Window, palette.color(QPalette::Normal, QPalette::Base));
+            widget->setAutoFillBackground(true);
+            widget->setPalette(palette);
+        }
+
+        QLineEdit* createSearchBox() {
+            auto* widget = new QLineEdit();
+            widget->setClearButtonEnabled(true);
+            widget->setPlaceholderText(QLineEdit::tr("Search..."));
+
+            QIcon icon = loadIconResourceQt(IO::Path("Search.png"));
+            widget->addAction(icon, QLineEdit::LeadingPosition);
+            return widget;
+        }
+
+        void checkButtonInGroup(QButtonGroup* group, const int id, const bool checked) {
+            QAbstractButton* button = group->button(id);
+            if (button == nullptr) {
+                return;
             }
-            return result;
+            button->setChecked(checked);
+        }
+
+        AutoResizeRowsEventFilter::AutoResizeRowsEventFilter(QTableView* tableView) :
+        QObject(tableView),
+        m_tableView(tableView) {
+            m_tableView->installEventFilter(this);
+        }
+
+        bool AutoResizeRowsEventFilter::eventFilter(QObject* watched, QEvent* event) {
+            if (watched == m_tableView && (event->type() == QEvent::Resize || event->type() == QEvent::Show)) {
+                m_tableView->resizeRowsToContents();
+            }
+            return QObject::eventFilter(watched, event);
+        }
+
+        void autoResizeRows(QTableView* tableView) {
+            auto* model = tableView->model();
+            if (model != nullptr) {
+                auto updateFn = [tableView](const QModelIndex &parent, int first, int last){
+                    DisableWindowUpdates disableUpdates(tableView);
+                    for (auto row = first; row <= last; ++row) {
+                        tableView->resizeRowToContents(row);
+                    }
+                };
+                QObject::connect(model, &QAbstractItemModel::rowsInserted, tableView, updateFn);
+                QObject::connect(model, &QAbstractItemModel::dataChanged, tableView, [tableView, updateFn](const QModelIndex &topLeft, const QModelIndex &bottomRight, const QVector<int> &roles) {
+                    const auto firstRow = topLeft.row();
+                    const auto lastRow = bottomRight.row();
+                    updateFn(tableView->rootIndex(), firstRow, lastRow);
+                });
+                QObject::connect(model, &QAbstractItemModel::modelReset, tableView, [tableView, updateFn]() {
+                    const auto firstRow = 0;
+                    const auto lastRow = tableView->model()->rowCount(tableView->rootIndex()) - 1;
+                    updateFn(tableView->rootIndex(), firstRow, lastRow);
+                });
+                tableView->installEventFilter(new AutoResizeRowsEventFilter(tableView));
+                tableView->resizeRowsToContents();
+            }
         }
     }
 }

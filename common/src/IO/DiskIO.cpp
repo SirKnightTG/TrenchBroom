@@ -20,12 +20,13 @@
 #include "DiskIO.h"
 
 #include "IO/File.h"
+#include "IO/FileMatcher.h"
+#include "IO/PathQt.h"
+#include "StringUtils.h"
 
-#include <wx/dir.h>
-#include <wx/filefn.h>
-#include <wx/filename.h>
+#include <QDir>
+#include <QFileInfo>
 
-#include <cstdio>
 #include <fstream>
 
 namespace TrenchBroom {
@@ -36,9 +37,12 @@ namespace TrenchBroom {
             Path fixCase(const Path& path);
 
             bool doCheckCaseSensitive() {
-                const wxString cwd = ::wxGetCwd();
-                assert(::wxDirExists(cwd));
-                return !::wxDirExists(cwd.Upper()) || !wxDirExists(cwd.Lower());
+                const QDir cwd = QDir::current();
+                assert(cwd.exists());
+
+                const QDir upper = QDir(cwd.path().toUpper());
+                const QDir lower = QDir(cwd.path().toLower());
+                return !upper.exists() || !lower.exists();
             }
 
             bool isCaseSensitive() {
@@ -61,8 +65,7 @@ namespace TrenchBroom {
 
                     if (path.isEmpty() || !isCaseSensitive())
                         return path;
-                    const String str = path.asString();
-                    if (::wxFileExists(str) || ::wxDirExists(str))
+                    if (QFileInfo::exists(pathAsQString(path)))
                         return path;
 
                     Path result(path.firstComponent());
@@ -71,9 +74,8 @@ namespace TrenchBroom {
                         return result;
 
                     while (!remainder.isEmpty()) {
-                        const String nextPathStr = (result + remainder.firstComponent()).asString();
-                        if (!::wxDirExists(nextPathStr) &&
-                            !::wxFileExists(nextPathStr)) {
+                        const QString nextPathStr = pathAsQString(result + remainder.firstComponent());
+                        if (!QFileInfo::exists(nextPathStr)) {
                             const Path::List content = getDirectoryContents(result);
                             const Path part = findCaseSensitivePath(content, remainder.firstComponent());
                             if (part.isEmpty())
@@ -102,35 +104,28 @@ namespace TrenchBroom {
 
             bool directoryExists(const Path& path) {
                 const Path fixedPath = fixPath(path);
-                return ::wxDirExists(fixedPath.asString());
+                return QDir(pathAsQString(fixedPath)).exists();
             }
 
             bool fileExists(const Path& path) {
                 const Path fixedPath = fixPath(path);
-                return ::wxFileExists(fixedPath.asString());
-            }
-
-            String replaceForbiddenChars(const String& name) {
-                static const String forbidden = wxFileName::GetForbiddenChars().ToStdString();
-                return StringUtils::replaceChars(name, forbidden, "_");
+                QFileInfo fileInfo = QFileInfo(pathAsQString(fixedPath));
+                return fileInfo.exists() && fileInfo.isFile();
             }
 
             Path::List getDirectoryContents(const Path& path) {
                 const Path fixedPath = fixPath(path);
-                wxDir dir(fixedPath.asString());
-                if (!dir.IsOpened()) {
+                QDir dir(pathAsQString(fixedPath));
+                if (!dir.exists()) {
                     throw FileSystemException("Cannot open directory: '" + fixedPath.asString() + "'");
                 }
 
-                Path::List result;
-                wxString filename;
-                if (dir.GetFirst(&filename)) {
-                    result.push_back(Path(filename.ToStdString()));
-                    while (dir.GetNext(&filename)) {
-                        result.push_back(Path(filename.ToStdString()));
-                    }
-                }
+                dir.setFilter(QDir::NoDotAndDotDot | QDir::AllEntries);
 
+                Path::List result;
+                for (QString& entry : dir.entryList()) {
+                    result.push_back(pathFromQString(entry));
+                }
                 return result;
             }
 
@@ -144,7 +139,7 @@ namespace TrenchBroom {
             }
 
             Path getCurrentWorkingDir() {
-                return Path(::wxGetCwd().ToStdString());
+                return pathFromQString(QDir::currentPath());
             }
 
             Path::List findItems(const Path& path) {
@@ -186,9 +181,9 @@ namespace TrenchBroom {
                 if (path.isEmpty())
                     return false;
                 const IO::Path parent = path.deleteLastComponent();
-                if (!::wxDirExists(parent.asString()) && !createDirectoryHelper(parent))
+                if (!QDir(pathAsQString(parent)).exists() && !createDirectoryHelper(parent))
                     return false;
-                return ::wxMkdir(path.asString());
+                return QDir().mkdir(pathAsQString(path));
             }
 
             void ensureDirectoryExists(const Path& path) {
@@ -203,29 +198,43 @@ namespace TrenchBroom {
                 const Path fixedPath = fixPath(path);
                 if (!fileExists(fixedPath))
                     throw FileSystemException("Could not delete file '" + fixedPath.asString() + "': File does not exist.");
-                if (!::wxRemoveFile(fixedPath.asString()))
+                if (!QFile::remove(pathAsQString(fixedPath)))
                     throw FileSystemException("Could not delete file '" + path.asString() + "'");
             }
 
             void copyFile(const Path& sourcePath, const Path& destPath, const bool overwrite) {
                 const Path fixedSourcePath = fixPath(sourcePath);
                 Path fixedDestPath = fixPath(destPath);
-                if (!overwrite && fileExists(fixedDestPath))
-                    throw FileSystemException("Could not copy file '" + fixedSourcePath.asString() + "' to '" + fixedDestPath.asString() + "': file already exists");
-                if (directoryExists(fixedDestPath))
+                if (directoryExists(fixedDestPath)) {
                     fixedDestPath = fixedDestPath + sourcePath.lastComponent();
-                if (!::wxCopyFile(fixedSourcePath.asString(), fixedDestPath.asString(), overwrite))
+                }
+                const bool exists = fileExists(fixedDestPath);
+                if (!overwrite && exists)
+                    throw FileSystemException("Could not copy file '" + fixedSourcePath.asString() + "' to '" + fixedDestPath.asString() + "': file already exists");
+                if (overwrite && exists) {
+                    if (!QFile::remove(pathAsQString(fixedDestPath))) {
+                        throw FileSystemException("Could not copy file '" + fixedSourcePath.asString() + "' to '" + fixedDestPath.asString() + "': couldn't remove destination");
+                    }
+                }
+                // NOTE: QFile::copy will not overwrite the dest
+                if (!QFile::copy(pathAsQString(fixedSourcePath), pathAsQString(fixedDestPath)))
                     throw FileSystemException("Could not copy file '" + fixedSourcePath.asString() + "' to '" + fixedDestPath.asString() + "'");
             }
 
             void moveFile(const Path& sourcePath, const Path& destPath, const bool overwrite) {
                 const Path fixedSourcePath = fixPath(sourcePath);
                 Path fixedDestPath = fixPath(destPath);
-                if (!overwrite && fileExists(fixedDestPath))
+                const bool exists = fileExists(fixedDestPath);
+                if (!overwrite && exists)
                     throw FileSystemException("Could not move file '" + fixedSourcePath.asString() + "' to '" + fixedDestPath.asString() + "': file already exists");
+                if (overwrite && exists) {
+                    if (!QFile::remove(pathAsQString(fixedDestPath))) {
+                        throw FileSystemException("Could not move file '" + fixedSourcePath.asString() + "' to '" + fixedDestPath.asString() + "': couldn't remove destination");
+                    }
+                }
                 if (directoryExists(fixedDestPath))
                     fixedDestPath = fixedDestPath + sourcePath.lastComponent();
-                if (!::wxRenameFile(fixedSourcePath.asString(), fixedDestPath.asString(), overwrite))
+                if (!QFile::rename(pathAsQString(fixedSourcePath), pathAsQString(fixedDestPath)))
                     throw FileSystemException("Could not move file '" + fixedSourcePath.asString() + "' to '" + fixedDestPath.asString() + "'");
             }
 

@@ -23,13 +23,12 @@
 #include "Model/ModelTypes.h"
 #include "View/ViewTypes.h"
 
-#include <wx/event.h>
-
-class wxWindow;
+#include <QWidget>
 
 namespace TrenchBroom {
     namespace View {
-        class SmartAttributeEditor : public wxEvtHandler {
+        class SmartAttributeEditor : public QWidget {
+            Q_OBJECT
         private:
             View::MapDocumentWPtr m_document;
 
@@ -37,12 +36,12 @@ namespace TrenchBroom {
             Model::AttributableNodeList m_attributables;
             bool m_active;
         public:
-            SmartAttributeEditor(View::MapDocumentWPtr document);
+            explicit SmartAttributeEditor(View::MapDocumentWPtr document, QWidget* parent = nullptr);
             virtual ~SmartAttributeEditor();
 
             bool usesName(const Model::AttributeName& name) const;
 
-            wxWindow* activate(wxWindow* parent, const Model::AttributeName& name);
+            void activate(const Model::AttributeName& name);
             void update(const Model::AttributableNodeList& attributables);
             void deactivate();
         protected:
@@ -51,12 +50,6 @@ namespace TrenchBroom {
             const Model::AttributableNodeList attributables() const;
             void addOrUpdateAttribute(const Model::AttributeValue& value);
         private:
-            wxWindow* createVisual(wxWindow* parent);
-            void destroyVisual();
-            void updateVisual(const Model::AttributableNodeList& attributables);
-
-            virtual wxWindow* doCreateVisual(wxWindow* parent) = 0;
-            virtual void doDestroyVisual() = 0;
             virtual void doUpdateVisual(const Model::AttributableNodeList& attributables) = 0;
         };
     }

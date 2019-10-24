@@ -22,19 +22,19 @@
 
 #include "View/ViewTypes.h"
 
-#include <wx/panel.h>
+#include <QWidget>
 
 namespace TrenchBroom {
     namespace View {
-        class TextureCollectionEditor : public wxPanel {
+        class TextureCollectionEditor : public QWidget {
+            Q_OBJECT
         private:
             MapDocumentWPtr m_document;
         public:
-            TextureCollectionEditor(wxWindow* parent, MapDocumentWPtr document);
-            ~TextureCollectionEditor();
+            explicit TextureCollectionEditor(MapDocumentWPtr document, QWidget* parent = nullptr);
+            ~TextureCollectionEditor() override ;
         private:
-            void documentWasNewed(MapDocument* document);
-            void documentWasLoaded(MapDocument* document);
+            void documentWasNewedOrLoaded(MapDocument* document);
 
             void createGui();
         };

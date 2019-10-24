@@ -19,20 +19,17 @@
 
 #include "CreateEntityTool.h"
 
+#include "Constants.h"
 #include "TrenchBroom.h"
 #include "PreferenceManager.h"
-#include "Preferences.h"
 #include "Assets/EntityDefinition.h"
 #include "Assets/EntityDefinitionManager.h"
-#include "Assets/EntityModelManager.h"
-#include "Assets/ModelDefinition.h"
 #include "Model/Brush.h"
 #include "Model/BrushFace.h"
 #include "Model/Entity.h"
 #include "Model/HitAdapter.h"
 #include "Model/Hit.h"
 #include "Model/HitQuery.h"
-#include "Model/Layer.h"
 #include "Model/PickResult.h"
 #include "Model/World.h"
 #include "Renderer/Camera.h"
@@ -40,8 +37,6 @@
 #include "View/MapDocument.h"
 
 #include <vecmath/bbox.h>
-
-#include <cassert>
 
 namespace TrenchBroom {
     namespace View {
@@ -98,17 +93,17 @@ namespace TrenchBroom {
             const auto anchor = dot(toMin, pickRay.direction) > dot(toMax, pickRay.direction) ? m_referenceBounds.min : m_referenceBounds.max;
             const auto dragPlane = vm::plane3(anchor, -pickRay.direction);
 
-            const auto distance = vm::intersectRayAndPlane(pickRay, dragPlane);
-            if (vm::isnan(distance)) {
+            const auto distance = vm::intersect_ray_plane(pickRay, dragPlane);
+            if (vm::is_nan(distance)) {
                 return;
             }
 
-            const auto hitPoint = pickRay.pointAtDistance(distance);
+            const auto hitPoint = vm::point_at_distance(pickRay, distance);
 
             const auto& grid = document->grid();
             const auto delta = grid.moveDeltaForBounds(dragPlane, m_entity->definitionBounds(), document->worldBounds(), pickRay, hitPoint);
 
-            if (!isZero(delta, vm::C::almostZero())) {
+            if (!vm::is_zero(delta, vm::C::almost_zero())) {
                 document->translateObjects(delta);
             }
         }
@@ -123,15 +118,15 @@ namespace TrenchBroom {
             const auto& hit = pickResult.query().pickable().type(Model::Brush::BrushHit).occluded().first();
             if (hit.isMatch()) {
                 const auto* face = Model::hitToFace(hit);
-                const auto dragPlane = alignedOrthogonalPlane(hit.hitPoint(), face->boundary().normal);
+                const auto dragPlane = vm::aligned_orthogonal_plane(hit.hitPoint(), face->boundary().normal);
                 delta = grid.moveDeltaForBounds(dragPlane, m_entity->definitionBounds(), document->worldBounds(), pickRay, hit.hitPoint());
             } else {
-                const auto newPosition = pickRay.pointAtDistance(Renderer::Camera::DefaultPointDistance);
+                const auto newPosition = vm::point_at_distance(pickRay, Renderer::Camera::DefaultPointDistance);
                 const auto boundsCenter = m_entity->definitionBounds().center();
                 delta = grid.moveDeltaForPoint(boundsCenter, document->worldBounds(), newPosition - boundsCenter);
             }
 
-            if (!isZero(delta, vm::C::almostZero())) {
+            if (!vm::is_zero(delta, vm::C::almost_zero())) {
                 document->translateObjects(delta);
             }
         }

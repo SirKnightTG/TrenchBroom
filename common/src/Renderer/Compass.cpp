@@ -28,7 +28,6 @@
 #include "Renderer/RenderUtils.h"
 #include "Renderer/Shaders.h"
 #include "Renderer/ShaderManager.h"
-#include "Renderer/Shader.h"
 #include "Renderer/Transformation.h"
 #include "Renderer/IndexRangeMapBuilder.h"
 #include "Renderer/GLVertex.h"
@@ -77,19 +76,19 @@ namespace TrenchBroom {
             const auto viewWidth = viewport.width;
             const auto viewHeight = viewport.height;
 
-            const auto projection = vm::orthoMatrix(0.0f, 1000.0f, -viewWidth / 2.0f, viewHeight / 2.0f, viewWidth / 2.0f, -viewHeight / 2.0f);
-            const auto view = vm::viewMatrix(vm::vec3f::pos_y, vm::vec3f::pos_z) * translationMatrix(500.0f * vm::vec3f::pos_y);
+            const auto projection = vm::ortho_matrix(0.0f, 1000.0f, -viewWidth / 2.0f, viewHeight / 2.0f, viewWidth / 2.0f, -viewHeight / 2.0f);
+            const auto view = vm::view_matrix(vm::vec3f::pos_y(), vm::vec3f::pos_z()) *vm::translation_matrix(500.0f * vm::vec3f::pos_y());
             const ReplaceTransformation ortho(renderContext.transformation(), projection, view);
 
-            const auto translation = vm::translationMatrix(vm::vec3f(-viewWidth / 2.0f + 55.0f, 0.0f, -viewHeight / 2.0f + 55.0f));
-            const auto scaling = vm::scalingMatrix(vm::vec3f::fill(2.0f));
+            const auto translation = vm::translation_matrix(vm::vec3f(-viewWidth / 2.0f + 55.0f, 0.0f, -viewHeight / 2.0f + 55.0f));
+            const auto scaling = vm::scaling_matrix(vm::vec3f::fill(2.0f));
             const auto compassTransformation = translation * scaling;
             const MultiplyModelMatrix compass(renderContext.transformation(), compassTransformation);
             const auto cameraTransformation = cameraRotationMatrix(camera);
 
-            glAssert(glClear(GL_DEPTH_BUFFER_BIT));
+            glAssert(glClear(GL_DEPTH_BUFFER_BIT))
             renderBackground(renderContext);
-            glAssert(glClear(GL_DEPTH_BUFFER_BIT));
+            glAssert(glClear(GL_DEPTH_BUFFER_BIT))
             doRenderCompass(renderContext, cameraTransformation);
         }
 
@@ -109,14 +108,14 @@ namespace TrenchBroom {
 
             VertsAndNormals shaftCap = circle3D(m_shaftRadius, m_segments);
             for (size_t i = 0; i < shaftCap.vertices.size(); ++i) {
-                shaftCap.vertices[i] = vm::mat4x4f::rot_180_x * shaftCap.vertices[i] + shaftOffset;
-                shaftCap.normals[i] = vm::mat4x4f::rot_180_x * shaftCap.normals[i];
+                shaftCap.vertices[i] = vm::mat4x4f::rot_180_x() * shaftCap.vertices[i] + shaftOffset;
+                shaftCap.normals[i] = vm::mat4x4f::rot_180_x() * shaftCap.normals[i];
             }
 
             VertsAndNormals headCap = circle3D(m_headRadius, m_segments);
             for (size_t i = 0; i < headCap.vertices.size(); ++i) {
-                headCap.vertices[i] = vm::mat4x4f::rot_180_x * headCap.vertices[i] + headOffset;
-                headCap.normals[i] = vm::mat4x4f::rot_180_x * headCap.normals[i];
+                headCap.vertices[i] = vm::mat4x4f::rot_180_x() * headCap.vertices[i] + headOffset;
+                headCap.normals[i] = vm::mat4x4f::rot_180_x() * headCap.normals[i];
             }
 
             using Vertex = GLVertexTypes::P3N::Vertex;
@@ -142,7 +141,7 @@ namespace TrenchBroom {
 
         void Compass::makeBackground() {
             using Vertex = GLVertexTypes::P2::Vertex;
-            std::vector<vm::vec2f> circ = circle2D((m_shaftLength + m_headLength) / 2.0f + 5.0f, 0.0f, vm::Cf::twoPi(), m_segments);
+            std::vector<vm::vec2f> circ = circle2D((m_shaftLength + m_headLength) / 2.0f + 5.0f, 0.0f, vm::Cf::two_pi(), m_segments);
             Vertex::List verts = Vertex::toList(circ.size(), std::begin(circ));
 
             IndexRangeMap::Size backgroundSize;
@@ -176,7 +175,7 @@ namespace TrenchBroom {
         void Compass::renderBackground(RenderContext& renderContext) {
             PreferenceManager& prefs = PreferenceManager::instance();
 
-            const MultiplyModelMatrix rotate(renderContext.transformation(), vm::mat4x4f::rot_90_x_ccw);
+            const MultiplyModelMatrix rotate(renderContext.transformation(), vm::mat4x4f::rot_90_x_ccw());
             ActiveShader shader(renderContext.shaderManager(), Shaders::CompassBackgroundShader);
             shader.set("Color", prefs.get(Preferences::CompassBackgroundColor));
             m_backgroundRenderer.render();
@@ -201,17 +200,17 @@ namespace TrenchBroom {
         }
 
         void Compass::renderAxisOutline(RenderContext& renderContext, const vm::mat4x4f& transformation, const Color& color) {
-            glAssert(glDepthMask(GL_FALSE));
-            glAssert(glLineWidth(3.0f));
-            glAssert(glPolygonMode(GL_FRONT, GL_LINE));
+            glAssert(glDepthMask(GL_FALSE))
+            glAssert(glLineWidth(3.0f))
+            glAssert(glPolygonMode(GL_FRONT, GL_LINE))
 
             ActiveShader shader(renderContext.shaderManager(), Shaders::CompassOutlineShader);
             shader.set("Color", color);
             renderAxis(renderContext, transformation);
 
-            glAssert(glDepthMask(GL_TRUE));
-            glAssert(glLineWidth(1.0f));
-            glAssert(glPolygonMode(GL_FRONT, GL_FILL));
+            glAssert(glDepthMask(GL_TRUE))
+            glAssert(glLineWidth(1.0f))
+            glAssert(glPolygonMode(GL_FRONT, GL_FILL))
         }
 
         void Compass::renderAxis(RenderContext& renderContext, const vm::mat4x4f& transformation) {

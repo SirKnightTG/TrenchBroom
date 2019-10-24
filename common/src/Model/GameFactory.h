@@ -20,7 +20,7 @@
 #ifndef TrenchBroom_GameFactory
 #define TrenchBroom_GameFactory
 
-#include "StringUtils.h"
+#include "StringType.h"
 #include "Preference.h"
 #include "IO/Path.h"
 #include "Model/GameConfig.h"
@@ -69,6 +69,15 @@ namespace TrenchBroom {
              * @throw StringList if loading game configurations fails
              */
             void initialize();
+
+            /**
+             * Saves the compilation and game engine configurations for the game with the given name.
+             *
+             * @param gameName the game for which the configurations should be saved
+             *
+             * @throw GameException if no config with the given name exists
+             */
+            void saveConfigs(const String& gameName);
 
             const StringList& gameList() const;
             size_t gameCount() const;

@@ -19,11 +19,11 @@
 
 #include "DkPakFileSystem.h"
 
-#include "CollectionUtils.h"
 #include "IO/File.h"
 #include "IO/Reader.h"
 #include "IO/DiskFileSystem.h"
 #include "IO/IOUtils.h"
+#include "StringUtils.h"
 
 #include <cassert>
 #include <cstring>

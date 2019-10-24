@@ -20,9 +20,10 @@
 #ifndef TrenchBroom_Logger
 #define TrenchBroom_Logger
 
-#include "StringUtils.h"
+#include "StringType.h"
+#include "StringStream.h"
 
-class wxString;
+class QString;
 
 namespace TrenchBroom {
     class Logger {
@@ -55,28 +56,28 @@ namespace TrenchBroom {
         stream debug();
         void debug(const char* format, ...);
         void debug(const String& message);
-        void debug(const wxString& message);
+        void debug(const QString& message);
 
         stream info();
         void info(const char* format, ...);
         void info(const String& message);
-        void info(const wxString& message);
+        void info(const QString& message);
 
         stream warn();
         void warn(const char* format, ...);
         void warn(const String& message);
-        void warn(const wxString& message);
+        void warn(const QString& message);
 
         stream error();
         void error(const char* format, ...);
         void error(const String& message);
-        void error(const wxString& message);
+        void error(const QString& message);
 
         void log(LogLevel level, const String& message);
-        void log(LogLevel level, const wxString& message);
+        void log(LogLevel level, const QString& message);
     private:
         virtual void doLog(LogLevel level, const String& message) = 0;
-        virtual void doLog(LogLevel level, const wxString& message) = 0;
+        virtual void doLog(LogLevel level, const QString& message) = 0;
     };
 
 
@@ -84,7 +85,7 @@ namespace TrenchBroom {
     class NullLogger : public Logger {
     private:
         void doLog(LogLevel level, const String& message) override;
-        void doLog(LogLevel level, const wxString& message) override;
+        void doLog(LogLevel level, const QString& message) override;
     };
 }
 

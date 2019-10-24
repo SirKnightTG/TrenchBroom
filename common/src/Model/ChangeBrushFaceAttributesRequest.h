@@ -21,7 +21,7 @@
 #define TrenchBroom_ChangeBrushFaceAttributesRequest
 
 #include "Color.h"
-#include "StringUtils.h"
+#include "StringType.h"
 #include "Model/ModelTypes.h"
 
 #include <vecmath/forward.h>
@@ -95,7 +95,7 @@ namespace TrenchBroom {
             void clear();
 
             const String name() const;
-            void evaluate(const BrushFaceList& faces) const;
+            bool evaluate(const BrushFaceList& faces) const;
 
             void resetAll();
 

@@ -66,9 +66,7 @@ namespace TrenchBroom {
             if (it != std::end(m_shaders))
                 return *it->second;
 
-            const IO::Path resourceDirectory = IO::SystemPaths::resourceDirectory();
-            const IO::Path shaderDirectory = resourceDirectory + IO::Path("shader");
-            const IO::Path shaderPath = shaderDirectory + IO::Path(name);
+            const IO::Path shaderPath = IO::SystemPaths::findResourceFile(IO::Path("shader") + IO::Path(name));
 
             Shader* shader = new Shader(shaderPath, type);
             m_shaders.insert(ShaderCacheEntry(name, shader));

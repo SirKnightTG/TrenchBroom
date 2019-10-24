@@ -22,8 +22,8 @@
 #include "Exceptions.h"
 #include "Macros.h"
 #include "IO/DiskFileSystem.h"
-#include "IO/Path.h"
 #include "Model/BrushFace.h"
+#include "StringStream.h"
 
 namespace TrenchBroom {
     namespace IO {

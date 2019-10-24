@@ -29,15 +29,17 @@
 #include "View/SmartAttributeEditorMatcher.h"
 #include "View/SmartSpawnflagsEditor.h"
 
-#include <wx/panel.h>
-#include <wx/sizer.h>
+#include <QWidget>
+#include <QVBoxLayout>
+#include <QStackedLayout>
 
 namespace TrenchBroom {
     namespace View {
-        SmartAttributeEditorManager::SmartAttributeEditorManager(wxWindow* parent, View::MapDocumentWPtr document) :
-        wxPanel(parent),
+        SmartAttributeEditorManager::SmartAttributeEditorManager(View::MapDocumentWPtr document, QWidget* parent) :
+        QWidget(parent),
         m_document(document),
-        m_name("") {
+        m_name(""),
+        m_stackedLayout(nullptr) {
             createEditors();
             activateEditor(defaultEditor(), "");
             bindObservers();
@@ -45,7 +47,6 @@ namespace TrenchBroom {
 
         SmartAttributeEditorManager::~SmartAttributeEditorManager() {
             unbindObservers();
-            deactivateEditor();
         }
 
         void SmartAttributeEditorManager::switchEditor(const Model::AttributeName& name, const Model::AttributableNodeList& attributables) {
@@ -54,19 +55,32 @@ namespace TrenchBroom {
             updateEditor();
         }
 
+        SmartAttributeEditor* SmartAttributeEditorManager::activeEditor() const {
+            return static_cast<SmartAttributeEditor *>(m_stackedLayout->currentWidget());
+        }
+
         bool SmartAttributeEditorManager::isDefaultEditorActive() const {
-            return m_activeEditor == defaultEditor();
+            return activeEditor() == defaultEditor();
         }
 
         void SmartAttributeEditorManager::createEditors() {
+            assert(m_editors.empty());
+
             m_editors.push_back(MatcherEditorPair(MatcherPtr(new SmartAttributeEditorKeyMatcher("spawnflags")),
-                                                  EditorPtr(new SmartSpawnflagsEditor(m_document))));
+                                                  new SmartSpawnflagsEditor(m_document)));
             m_editors.push_back(MatcherEditorPair(MatcherPtr(new SmartAttributeEditorKeyMatcher({ "*_color", "*_color2", "*_colour" })),
-                                                  EditorPtr(new SmartColorEditor(m_document))));
+                                                  new SmartColorEditor(m_document)));
             m_editors.push_back(MatcherEditorPair(MatcherPtr(new SmartChoiceEditorMatcher()),
-                                                  EditorPtr(new SmartChoiceEditor(m_document))));
+                                                  new SmartChoiceEditor(m_document)));
             m_editors.push_back(MatcherEditorPair(MatcherPtr(new SmartAttributeEditorDefaultMatcher()),
-                                                  EditorPtr(new SmartDefaultAttributeEditor(m_document))));
+                                                  new SmartDefaultAttributeEditor(m_document)));
+
+            m_stackedLayout = new QStackedLayout();
+            for (auto& [matcherPtr, editor] : m_editors) {
+                unused(matcherPtr);
+                m_stackedLayout->addWidget(editor);
+            }
+            setLayout(m_stackedLayout);
         }
 
         void SmartAttributeEditorManager::bindObservers() {
@@ -111,31 +125,27 @@ namespace TrenchBroom {
         }
 
         void SmartAttributeEditorManager::activateEditor(EditorPtr editor, const Model::AttributeName& name) {
-            if (m_activeEditor != editor || !m_activeEditor->usesName(name)) {
+            if (m_stackedLayout->currentWidget() != editor || !activeEditor()->usesName(name)) {
                 deactivateEditor();
-                m_activeEditor = editor;
-                m_name = name;
-                wxWindow* window = m_activeEditor->activate(this, m_name);
 
-                wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-                sizer->Add(window, 1, wxEXPAND);
-                SetSizer(sizer);
-                Layout();
+                m_name = name;
+                m_stackedLayout->setCurrentWidget(editor);
+                editor->activate(m_name);
             }
         }
 
         void SmartAttributeEditorManager::deactivateEditor() {
-            if (m_activeEditor.get() != nullptr) {
-                m_activeEditor->deactivate();
-                m_activeEditor = EditorPtr();
+            if (activeEditor() != nullptr) {
+                activeEditor()->deactivate();
+                m_stackedLayout->setCurrentIndex(-1);
                 m_name = "";
             }
         }
 
         void SmartAttributeEditorManager::updateEditor() {
-            if (m_activeEditor.get() != nullptr) {
+            if (activeEditor() != nullptr) {
                 MapDocumentSPtr document = lock(m_document);
-                m_activeEditor->update(document->allSelectedAttributableNodes());
+                activeEditor()->update(document->allSelectedAttributableNodes());
             }
         }
     }

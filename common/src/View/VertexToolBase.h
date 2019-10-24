@@ -22,12 +22,14 @@
 
 #include "Disjunction.h"
 #include "TrenchBroom.h"
+#include "Polyhedron3.h"
 #include "PreferenceManager.h"
 #include "Preferences.h"
 #include "Model/Brush.h"
 #include "Model/BrushBuilder.h"
 #include "Model/Hit.h"
 #include "Model/ModelTypes.h"
+#include "Model/NodeVisitor.h"
 #include "Model/World.h"
 #include "Renderer/RenderBatch.h"
 #include "Renderer/RenderService.h"
@@ -243,7 +245,7 @@ namespace TrenchBroom {
             void csgConvexMerge() {
                 std::vector<vm::vec3> vertices;
                 const auto handles = handleManager().selectedHandles();
-                H::getVertices(std::begin(handles), std::end(handles), std::back_inserter(vertices));
+                H::get_vertices(std::begin(handles), std::end(handles), std::back_inserter(vertices));
 
                 const Polyhedron3 polyhedron(vertices);
                 if (!polyhedron.polyhedron() || !polyhedron.closed()) {

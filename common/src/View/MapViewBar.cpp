@@ -20,57 +20,45 @@
 #include "MapViewBar.h"
 
 #include "PreferenceManager.h"
-#include "Preferences.h"
 #include "View/MapDocument.h"
 #include "View/ViewConstants.h"
 #include "View/ViewEditor.h"
-#include "View/wxUtils.h"
 
-#include <wx/dcclient.h>
-#include <wx/simplebook.h>
-#include <wx/sizer.h>
-#include <wx/srchctrl.h>
-#include <wx/statbmp.h>
-#include <wx/stattext.h>
+#include <QHBoxLayout>
+#include <QResizeEvent>
+#include <QStackedLayout>
 
 namespace TrenchBroom {
     namespace View {
-        MapViewBar::MapViewBar(wxWindow* parent, MapDocumentWPtr document) :
-        ContainerBar(parent, wxBOTTOM),
+        MapViewBar::MapViewBar(MapDocumentWPtr document, QWidget* parent) :
+        ContainerBar(Sides::BottomSide, parent),
         m_document(document),
         m_toolBook(nullptr),
         m_viewEditor(nullptr) {
-#if defined __APPLE__
-            SetWindowVariant(wxWINDOW_VARIANT_SMALL);
-#endif
             createGui(document);
         }
 
-        wxBookCtrlBase* MapViewBar::toolBook() {
+        QStackedLayout* MapViewBar::toolBook() {
             return m_toolBook;
         }
 
-        void MapViewBar::OnSearchPatternChanged(wxCommandEvent& event) {
-            if (IsBeingDeleted()) return;
-        }
-
         void MapViewBar::createGui(MapDocumentWPtr document) {
-            m_toolBook = new wxSimplebook(this);
-            m_viewEditor = new ViewPopupEditor(this, document);
+            m_toolBook = new QStackedLayout();
+            m_toolBook->setContentsMargins(0, 0, 0, 0);
 
-            wxSizer* hSizer = new wxBoxSizer(wxHORIZONTAL);
-            hSizer->AddSpacer(LayoutConstants::NarrowHMargin);
-            hSizer->Add(m_toolBook, 1, wxEXPAND);
-            hSizer->AddSpacer(LayoutConstants::MediumHMargin);
-            hSizer->Add(m_viewEditor, 0, wxALIGN_CENTRE_VERTICAL);
-            hSizer->AddSpacer(LayoutConstants::NarrowHMargin);
+            m_viewEditor = new ViewPopupEditor(std::move(document));
 
-            wxSizer* vSizer = new wxBoxSizer(wxVERTICAL);
-            vSizer->AddSpacer(LayoutConstants::NarrowVMargin);
-            vSizer->Add(hSizer, 1, wxEXPAND);
-            vSizer->AddSpacer(LayoutConstants::NarrowVMargin);
+            auto* layout = new QHBoxLayout();
+            layout->setContentsMargins(
+                LayoutConstants::WideHMargin,
+                0,
+                LayoutConstants::WideHMargin,
+                0);
+            layout->setSpacing(LayoutConstants::WideHMargin);
+            layout->addLayout(m_toolBook, 1);
+            layout->addWidget(m_viewEditor, 0, Qt::AlignVCenter);
 
-            SetSizer(vSizer);
+            setLayout(layout);
         }
     }
 }

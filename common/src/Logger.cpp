@@ -19,6 +19,10 @@
 
 #include "Logger.h"
 
+#include "StringUtils.h"
+
+#include <QString>
+
 #include <cstdarg>
 
 namespace TrenchBroom {
@@ -52,7 +56,7 @@ namespace TrenchBroom {
 #endif
     }
 
-    void Logger::debug(const wxString& message) {
+    void Logger::debug(const QString& message) {
 #ifndef NDEBUG
         log(LogLevel_Debug, message);
 #endif
@@ -74,7 +78,7 @@ namespace TrenchBroom {
         log(LogLevel_Info, message);
     }
 
-    void Logger::info(const wxString& message) {
+    void Logger::info(const QString& message) {
         log(LogLevel_Info, message);
     }
 
@@ -94,7 +98,7 @@ namespace TrenchBroom {
         log(LogLevel_Warn, message);
     }
 
-    void Logger::warn(const wxString& message) {
+    void Logger::warn(const QString& message) {
         log(LogLevel_Warn, message);
     }
 
@@ -114,7 +118,7 @@ namespace TrenchBroom {
         log(LogLevel_Error, message);
     }
 
-    void Logger::error(const wxString& message) {
+    void Logger::error(const QString& message) {
         log(LogLevel_Error, message);
     }
 
@@ -125,7 +129,7 @@ namespace TrenchBroom {
         doLog(level, message);
     }
 
-    void Logger::log(const LogLevel level, const wxString& message) {
+    void Logger::log(const LogLevel level, const QString& message) {
 #ifdef NDEBUG
         if (level != LogLevel_Debug)
 #endif
@@ -133,5 +137,5 @@ namespace TrenchBroom {
     }
 
     void NullLogger::doLog(Logger::LogLevel level, const String& message) {}
-    void NullLogger::doLog(Logger::LogLevel level, const wxString& message) {}
+    void NullLogger::doLog(Logger::LogLevel level, const QString& message) {}
 }

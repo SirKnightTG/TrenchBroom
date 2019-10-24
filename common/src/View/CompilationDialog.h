@@ -22,10 +22,11 @@
 
 #include "View/CompilationRun.h"
 
-#include <wx/dialog.h>
+#include <QDialog>
 
-class wxStaticText;
-class wxTextCtrl;
+class QLabel;
+class QPushButton;
+class QTextEdit;
 
 namespace TrenchBroom {
     namespace View {
@@ -33,30 +34,37 @@ namespace TrenchBroom {
         class CompilationRunner;
         class MapFrame;
 
-        class CompilationDialog : public wxDialog {
+        class CompilationDialog : public QDialog {
+            Q_OBJECT
         private:
             MapFrame* m_mapFrame;
             CompilationProfileManager* m_profileManager;
-            wxStaticText* m_currentRunLabel;
-            wxTextCtrl* m_output;
+            QPushButton* m_launchButton;
+            QPushButton* m_compileButton;
+            QPushButton* m_closeButton;
+            QLabel* m_currentRunLabel;
+            QTextEdit* m_output;
             CompilationRun m_run;
         public:
-            CompilationDialog(MapFrame* mapFrame);
+            explicit CompilationDialog(MapFrame* mapFrame);
         private:
             void createGui();
 
-            void OnLaunchClicked(wxCommandEvent& event);
-            void OnUpdateLaunchButtonUI(wxUpdateUIEvent& event);
+            void keyPressEvent(QKeyEvent* event) override;
+            void keyReleaseEvent(QKeyEvent* event) override;
+            void focusInEvent(QFocusEvent* event) override;
+            void focusOutEvent(QFocusEvent* event) override;
+            void updateCompileButton(bool test);
 
-            void OnToggleCompileClicked(wxCommandEvent& event);
-            void OnUpdateCompileButtonUI(wxUpdateUIEvent& event);
+            void closeEvent(QCloseEvent* event) override;
+        private slots:
+            void launchEngine();
+            void toggleCompile();
 
-			void OnCloseButtonClicked(wxCommandEvent& event);
-            void OnClose(wxCloseEvent& event);
+            void compilationStarted();
+            void compilationEnded();
 
-            void OnCompilationEnd(wxEvent& event);
-
-            bool testRun() const;
+            void selectedProfileChanged();
         };
     }
 }

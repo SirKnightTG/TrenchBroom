@@ -20,8 +20,7 @@
 #ifndef TrenchBroom_DkmParser
 #define TrenchBroom_DkmParser
 
-#include "StringUtils.h"
-#include "Assets/AssetTypes.h"
+#include "StringType.h"
 #include "Assets/EntityModel.h"
 #include "IO/EntityModelParser.h"
 

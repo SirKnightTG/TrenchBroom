@@ -20,8 +20,7 @@
 #ifndef TrenchBroom_BrushFaceAttributes
 #define TrenchBroom_BrushFaceAttributes
 
-#include "TrenchBroom.h"
-#include "StringUtils.h"
+#include "StringType.h"
 #include "Color.h"
 
 #include <vecmath/forward.h>

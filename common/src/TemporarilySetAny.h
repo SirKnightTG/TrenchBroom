@@ -20,8 +20,7 @@
 #ifndef TrenchBroom_TemporarilySetAny
 #define TrenchBroom_TemporarilySetAny
 
-#include <cassert>
-#include <iostream>
+#include "Ensure.h"
 
 namespace TrenchBroom {
     template <typename T>
@@ -58,7 +57,7 @@ namespace TrenchBroom {
 
     class TemporarilySetBool : public TemporarilySetAny<bool> {
     public:
-        TemporarilySetBool(bool& value, bool newValue = true);
+        explicit TemporarilySetBool(bool& value, bool newValue = true);
     };
 
     template <typename R>

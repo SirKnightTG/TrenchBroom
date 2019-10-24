@@ -20,55 +20,147 @@
 #ifndef TrenchBroom_wxUtils
 #define TrenchBroom_wxUtils
 
+#undef CursorShape
+#include <QString>
+
 #include "Color.h"
-#include "StringUtils.h"
+#include "StringType.h"
 
-#include <vector>
+#include "View/ViewConstants.h"
 
-#include <wx/colour.h>
+#include <QBoxLayout>
+#include <QColor>
+#include <QObject>
+#include <QSettings>
+#include <QWidget>
 
-class wxBitmapButton;
-class wxBitmapToggleButton;
-class wxCursor;
-class wxFrame;
-class wxListCtrl;
-class wxSizer;
-class wxTopLevelWindow;
-class wxWindow;
+class QAbstractButton;
+class QCompleter;
+class QDialogButtonBox;
+class QFont;
+class QLayout;
+class QLineEdit;
+class QMainWindow;
+class QPalette;
+class QSettings;
+class QSlider;
+class QSplitter;
+class QWidget;
+class QButtonGroup;
+class QTableView;
 
 namespace TrenchBroom {
     namespace View {
-        class MapFrame;
+        class DisableWindowUpdates {
+        private:
+            QWidget* m_widget;
+        public:
+            explicit DisableWindowUpdates(QWidget* widget);
+            ~DisableWindowUpdates();
+        };
 
-        MapFrame* findMapFrame(wxWindow* window);
-        wxFrame* findFrame(wxWindow* window);
+        QString windowSettingsPath(const QWidget* window, const QString& suffix = "");
 
-        void fitAll(wxWindow* window);
-
-        wxColor makeLighter(const wxColor& color);
-        Color fromWxColor(const wxColor& color);
-        wxColor toWxColor(const Color& color);
-
-        std::vector<size_t> getListCtrlSelection(const wxListCtrl* listCtrl);
-        void deselectAllListrCtrlItems(wxListCtrl* listCtrl);
-
-        wxWindow* createBitmapButton(wxWindow* parent, const String& image, const String& tooltip);
-        wxWindow* createBitmapToggleButton(wxWindow* parent, const String& upImage, const String& downImage, const String& tooltip);
-
-        wxWindow* createDefaultPage(wxWindow* parent, const wxString& message);
-
-        wxSizer* wrapDialogButtonSizer(wxSizer* buttonSizer, wxWindow* parent);
-
-        void setWindowIcon(wxTopLevelWindow* window);
+        void saveWindowGeometry(QWidget* window);
+        void restoreWindowGeometry(QWidget* window);
 
         template <typename T>
-        void setHint(T* ctrl, const wxString& hint) {
-#ifndef __WXGTK20__
-            ctrl->SetHint(hint);
-#endif
+        void saveWindowState(const T* window) {
+            ensure(window != nullptr, "window must not be null");
+
+            const auto path = windowSettingsPath(window, "State");
+            QSettings settings;
+            settings.setValue(path, window->saveState());
         }
 
-        wxArrayString filterBySuffix(const wxArrayString& strings, const wxString& suffix, bool caseSensitive = false);
+        template <typename T>
+        void restoreWindowState(T* window) {
+            ensure(window != nullptr, "window must not be null");
+
+            const auto path = windowSettingsPath(window, "State");
+            QSettings settings;
+            window->restoreState(settings.value(path).toByteArray());
+        }
+
+        class MapFrame;
+        MapFrame* findMapFrame(QWidget* widget);
+
+        QAbstractButton* createBitmapButton(const String& image, const QString& tooltip, QWidget* parent = nullptr);
+        QAbstractButton* createBitmapButton(const QIcon& icon, const QString& tooltip, QWidget* parent = nullptr);
+        QAbstractButton* createBitmapToggleButton(const String& image, const QString& tooltip, QWidget* parent = nullptr);
+
+        QWidget* createDefaultPage(const QString& message, QWidget* parent = nullptr);
+        QSlider* createSlider(int min, int max);
+
+        float getSliderRatio(const QSlider* slider);
+        void setSliderRatio(QSlider* slider, float ratio);
+
+        QLayout* wrapDialogButtonBox(QWidget* buttonBox);
+        QLayout* wrapDialogButtonBox(QLayout* buttonBox);
+
+        void addToMiniToolBarLayout(QBoxLayout* layout);
+
+        template <typename... Rest>
+        void addToMiniToolBarLayout(QBoxLayout* layout, int first, Rest... rest);
+
+        template <typename... Rest>
+        void addToMiniToolBarLayout(QBoxLayout* layout, QWidget* first, Rest... rest) {
+            layout->addWidget(first);
+            addToMiniToolBarLayout(layout, rest...);
+        }
+
+        template <typename... Rest>
+        void addToMiniToolBarLayout(QBoxLayout* layout, int first, Rest... rest) {
+            layout->addSpacing(first - LayoutConstants::NarrowHMargin);
+            addToMiniToolBarLayout(layout, rest...);
+        }
+
+        template <typename... Rest>
+        QLayout* createMiniToolBarLayout(QWidget* first, Rest... rest) {
+            auto* layout = new QHBoxLayout();
+            layout->setContentsMargins(LayoutConstants::NarrowHMargin, 0, LayoutConstants::NarrowHMargin, 0);
+            layout->setSpacing(LayoutConstants::NarrowHMargin);
+            addToMiniToolBarLayout(layout, first, rest...);
+            layout->addStretch(1);
+            return layout;
+        }
+
+        void setHint(QLineEdit* ctrl, const char* hint);
+        void centerOnScreen(QWidget* window);
+
+        QWidget* makeDefault(QWidget* widget);
+        QWidget* makeEmphasized(QWidget* widget);
+        QWidget* makeUnemphasized(QWidget* widget);
+        QWidget* makeInfo(QWidget* widget);
+        QWidget* makeHeader(QWidget* widget);
+        QWidget* makeError(QWidget* widget);
+
+        QWidget* makeSelected(QWidget* widget);
+        QWidget* makeUnselected(QWidget* widget);
+
+        QSettings& getSettings();
+        Color fromQColor(const QColor& color);
+        QColor toQColor(const Color& color);
+        void setWindowIconTB(QWidget* window);
+        void setDebugBackgroundColor(QWidget* widget, const QColor& color);
+
+        void setDefaultWindowColor(QWidget* widget);
+        void setBaseWindowColor(QWidget* widget);
+
+        QLineEdit* createSearchBox();
+
+        void checkButtonInGroup(QButtonGroup* group, int id, bool checked);
+
+        class AutoResizeRowsEventFilter : public QObject {
+            Q_OBJECT
+        private:
+            QTableView* m_tableView;
+        public:
+            explicit AutoResizeRowsEventFilter(QTableView* tableView);
+
+            bool eventFilter(QObject* watched, QEvent* event) override;
+        };
+        void autoResizeRows(QTableView* tableView);
     }
 }
 

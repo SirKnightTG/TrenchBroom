@@ -22,10 +22,6 @@
 
 #include <vecmath/forward.h>
 
-#include "Polyhedron.h"
-#include "Polyhedron_BrushGeometryPayload.h"
-#include "Polyhedron_DefaultPayload.h"
-
 using FloatType = double;
 
 namespace vm {
@@ -40,14 +36,6 @@ namespace vm {
     using polygon3 = vm::polygon<FloatType,3>;
     using bbox3 = vm::bbox<FloatType,3>;
     using bbox2 = vm::bbox<FloatType,2>;
-
-    using C = constants<FloatType>;
 }
-
-
-#include "Polyhedron_Instantiation.h"
-
-template<typename T, typename FP, typename VB> class Polyhedron;
-using Polyhedron3 = Polyhedron<FloatType, DefaultPolyhedronPayload, DefaultPolyhedronPayload>;
 
 #endif

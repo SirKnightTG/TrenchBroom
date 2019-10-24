@@ -20,11 +20,11 @@
 #include "MapRenderer.h"
 
 #include "CollectionUtils.h"
-#include "Macros.h"
 #include "PreferenceManager.h"
 #include "Preferences.h"
 #include "Assets/EntityDefinitionManager.h"
 #include "Model/Brush.h"
+#include "Model/BrushFace.h"
 #include "Model/CollectMatchingNodesVisitor.h"
 #include "Model/EditorContext.h"
 #include "Model/Entity.h"
@@ -32,16 +32,12 @@
 #include "Model/Layer.h"
 #include "Model/Node.h"
 #include "Model/NodeVisitor.h"
-#include "Model/Tag.h"
-#include "Model/TagAttribute.h"
 #include "Model/World.h"
 #include "Renderer/BrushRenderer.h"
-#include "Renderer/Camera.h"
 #include "Renderer/EntityLinkRenderer.h"
 #include "Renderer/ObjectRenderer.h"
 #include "Renderer/RenderBatch.h"
 #include "Renderer/RenderContext.h"
-#include "Renderer/RenderService.h"
 #include "Renderer/RenderUtils.h"
 #include "View/Selection.h"
 #include "View/MapDocument.h"
@@ -202,10 +198,10 @@ namespace TrenchBroom {
         class SetupGL : public Renderable {
         private:
             void doRender(RenderContext& renderContext) override {
-                glAssert(glFrontFace(GL_CW));
-                glAssert(glEnable(GL_CULL_FACE));
-                glAssert(glEnable(GL_DEPTH_TEST));
-                glAssert(glDepthFunc(GL_LEQUAL));
+                glAssert(glFrontFace(GL_CW))
+                glAssert(glEnable(GL_CULL_FACE))
+                glAssert(glEnable(GL_DEPTH_TEST))
+                glAssert(glDepthFunc(GL_LEQUAL))
                 glResetEdgeOffset();
             }
         };

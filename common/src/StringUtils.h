@@ -21,6 +21,10 @@
 #define TrenchBroom_StringUtils_h
 
 #include "Macros.h"
+#include "StringList.h"
+#include "StringSet.h"
+#include "StringStream.h"
+#include "StringType.h"
 
 #include <cassert>
 #include <cstdarg>
@@ -31,13 +35,6 @@
 #include <string>
 #include <vector>
 
-using String = std::string;
-using StringStream = std::stringstream;
-using StringSet = std::set<String>;
-using StringList = std::vector<String>;
-using StringMap = std::map<String, String>;
-
-static const String EmptyString("");
 static const StringList EmptyStringList(0);
 
 namespace StringUtils {
@@ -47,7 +44,7 @@ namespace StringUtils {
         std::streamsize m_oldPrecision;
         std::ios::fmtflags m_oldFlags;
     public:
-        PushPrecision(std::ostream& str, const std::streamsize precision = 9):
+        explicit PushPrecision(std::ostream& str, const std::streamsize precision = 9):
         m_str(str),
         m_oldPrecision(m_str.precision()),
         m_oldFlags(str.flags()){
@@ -122,9 +119,11 @@ namespace StringUtils {
     using CaseSensitiveStringLess = StringLess<CaseSensitiveCharCompare>;
     using CaseInsensitiveStringLess = StringLess<CaseInsensitiveCharCompare>;
 
+    const String& choose(bool predicate, const String& positive, const String& negative);
+
     template <typename T>
     const String& safePlural(const T count, const String& singular, const String& plural) {
-        return count == 1 ? singular : plural;
+        return choose(count == 1, singular, plural);
     }
 
     template <typename T>
@@ -140,8 +139,9 @@ namespace StringUtils {
 
         String str = strout.str() ;
         size_t end = str.find_last_not_of('0');
-        if (str[end] == '.')
+        if (str[end] == '.') {
             --end;
+        }
         return str.erase(end + 1);
     }
 

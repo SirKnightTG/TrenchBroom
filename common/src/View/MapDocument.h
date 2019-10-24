@@ -39,8 +39,10 @@
 #include <vecmath/bbox.h>
 #include <vecmath/util.h>
 
+#include <functional>
 #include <list>
 #include <memory>
+#include <vector>
 
 class Color;
 namespace TrenchBroom {
@@ -63,6 +65,7 @@ namespace TrenchBroom {
     }
 
     namespace View {
+        class Action;
         class Command;
         class Grid;
         class MapViewConfig;
@@ -93,6 +96,10 @@ namespace TrenchBroom {
             std::unique_ptr<MapViewConfig> m_mapViewConfig;
             std::unique_ptr<Grid> m_grid;
 
+            using ActionList = std::list<Action>;
+            ActionList m_tagActions;
+            ActionList m_entityDefinitionActions;
+
             IO::Path m_path;
             size_t m_lastSaveModificationCount;
             size_t m_modificationCount;
@@ -115,6 +122,8 @@ namespace TrenchBroom {
             Notifier<UndoableCommand::Ptr> commandUndoNotifier;
             Notifier<UndoableCommand::Ptr> commandUndoneNotifier;
             Notifier<UndoableCommand::Ptr> commandUndoFailedNotifier;
+            Notifier<const String&> transactionDoneNotifier;
+            Notifier<const String&> transactionUndoneNotifier;
 
             Notifier<MapDocument*> documentWillBeClearedNotifier;
             Notifier<MapDocument*> documentWasClearedNotifier;
@@ -188,6 +197,14 @@ namespace TrenchBroom {
             Model::PortalFile* portalFile() const;
 
             void setViewEffectsService(ViewEffectsService* viewEffectsService);
+        public: // tag and entity definition actions
+            using ActionVisitor = std::function<void(const Action&)>;
+            void visitTagActions(const ActionVisitor& visitor) const;
+            void visitEntityDefinitionActions(const ActionVisitor& visitor) const;
+        private: // tag and entity definition actions
+            void createTagActions();
+            void createEntityDefinitionActions();
+            void visitActions(const ActionVisitor& visitor, const ActionList& actions) const;
         public: // new, load, save document
             void newDocument(Model::MapFormat mapFormat, const vm::bbox3& worldBounds, Model::GameSPtr game);
             void loadDocument(Model::MapFormat mapFormat, const vm::bbox3& worldBounds, Model::GameSPtr game, const IO::Path& path);
@@ -207,12 +224,14 @@ namespace TrenchBroom {
             bool pasteNodes(const Model::NodeList& nodes);
             bool pasteBrushFaces(const Model::BrushFaceList& faces);
         public: // point file management
+            // cppcheck-suppress passedByValue
             void loadPointFile(const IO::Path path);
             bool isPointFileLoaded() const;
             bool canReloadPointFile() const;
             void reloadPointFile();
             void unloadPointFile();
         public: // portal file management
+            // cppcheck-suppress passedByValue
             void loadPortalFile(const IO::Path path);
             bool isPortalFileLoaded() const;
             bool canReloadPortalFile() const;
@@ -244,6 +263,7 @@ namespace TrenchBroom {
             void select(const Model::BrushFaceList& faces) override;
             void select(Model::BrushFace* face) override;
             void convertToFaceSelection() override;
+            void selectFacesWithTexture(const Assets::Texture* texture);
 
             void deselectAll() override;
             void deselect(Model::Node* node) override;
@@ -366,6 +386,7 @@ namespace TrenchBroom {
             const String& nextCommandName() const;
             void undoLastCommand();
             void redoNextCommand();
+            bool hasRepeatableCommands() const;
             bool repeatLastCommands();
             void clearRepeatableCommands();
         public: // transactions
@@ -383,6 +404,7 @@ namespace TrenchBroom {
             virtual const String& doGetNextCommandName() const = 0;
             virtual void doUndoLastCommand() = 0;
             virtual void doRedoNextCommand() = 0;
+            virtual bool doHasRepeatableCommands() const = 0;
             virtual bool doRepeatLastCommands() = 0;
             virtual void doClearRepeatableCommands() = 0;
 

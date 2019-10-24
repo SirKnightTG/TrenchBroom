@@ -23,50 +23,61 @@
 #include "View/FaceInspector.h"
 #include "View/MapInspector.h"
 #include "View/TabBook.h"
-#include "View/TabBar.h"
 
-#include <wx/sizer.h>
+#include <QResizeEvent>
+#include <QVBoxLayout>
 
 namespace TrenchBroom {
     namespace View {
-        Inspector::Inspector(wxWindow* parent, MapDocumentWPtr document, GLContextManager& contextManager) :
-        wxPanel(parent),
+        Inspector::Inspector(MapDocumentWPtr document, GLContextManager& contextManager, QWidget* parent) :
+        QWidget(parent),
         m_tabBook(nullptr),
         m_mapInspector(nullptr),
         m_entityInspector(nullptr),
-        m_faceInspector(nullptr) {
+        m_faceInspector(nullptr),
+        m_topWidgetMaster(nullptr) {
+            m_tabBook = new TabBook();
 
-            m_tabBook = new TabBook(this);
-
-            m_mapInspector = new MapInspector(m_tabBook, document, contextManager);
-            m_entityInspector = new EntityInspector(m_tabBook, document, contextManager);
-            m_faceInspector = new FaceInspector(m_tabBook, document, contextManager);
+            m_mapInspector = new MapInspector(document, contextManager);
+            m_entityInspector = new EntityInspector(document, contextManager);
+            m_faceInspector = new FaceInspector(document, contextManager);
 
             m_tabBook->addPage(m_mapInspector, "Map");
             m_tabBook->addPage(m_entityInspector, "Entity");
             m_tabBook->addPage(m_faceInspector, "Face");
 
-            wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-            sizer->Add(m_tabBook, 1, wxEXPAND);
-            SetSizer(sizer);
+            auto* layout = new QVBoxLayout();
+            layout->setContentsMargins(0, 0, 0, 0);
+            layout->addWidget(m_tabBook);
+            setLayout(layout);
         }
 
-        void Inspector::connectTopWidgets(wxWindow* master) {
-            master->Bind(wxEVT_SIZE, &Inspector::OnTopWidgetSize, this);
+        void Inspector::connectTopWidgets(QWidget* master) {
+            if (m_topWidgetMaster != nullptr) {
+                m_topWidgetMaster->removeEventFilter(this);
+            }
+            m_topWidgetMaster = master;
+            if (m_topWidgetMaster != nullptr) {
+                m_topWidgetMaster->installEventFilter(this);
+            }
         }
 
         void Inspector::switchToPage(const InspectorPage page) {
-            m_tabBook->switchToPage(static_cast<size_t>(page));
+            m_tabBook->switchToPage(page);
         }
 
         bool Inspector::cancelMouseDrag() {
             return m_faceInspector->cancelMouseDrag();
         }
 
-        void Inspector::OnTopWidgetSize(wxSizeEvent& event) {
-            if (IsBeingDeleted()) return;
-            m_tabBook->setTabBarHeight(event.GetSize().y);
-            event.Skip();
+        bool Inspector::eventFilter(QObject* target, QEvent* event) {
+            if (target == m_topWidgetMaster && event->type() == QEvent::Resize) {
+                auto* sizeEvent = static_cast<QResizeEvent*>(event);
+                m_tabBook->setTabBarHeight(sizeEvent->size().height());
+                return false;
+            } else {
+                return QObject::eventFilter(target, event);
+            }
         }
     }
 }

@@ -19,6 +19,7 @@
 
 #include "Shader.h"
 
+#include <cassert>
 #include <fstream>
 
 #include "Exceptions.h"
@@ -55,7 +56,7 @@ namespace TrenchBroom {
                 glAssert(glGetShaderiv(m_shaderId, GL_INFO_LOG_LENGTH, &infoLogLength));
                 if (infoLogLength > 0) {
                     char* infoLog = new char[static_cast<size_t>(infoLogLength)];
-                    glGetShaderInfoLog(m_shaderId, infoLogLength, &infoLogLength, infoLog);
+                    glAssert(glGetShaderInfoLog(m_shaderId, infoLogLength, &infoLogLength, infoLog));
                     infoLog[infoLogLength-1] = 0;
 
                     ex << infoLog;

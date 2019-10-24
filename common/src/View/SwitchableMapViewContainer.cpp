@@ -36,21 +36,20 @@
 #include "View/MapViewBar.h"
 #include "View/MapViewToolBox.h"
 
-#include <vecmath/scalar.h>
-
-#include <wx/sizer.h>
+#include <QGridLayout>
 
 namespace TrenchBroom {
     namespace View {
-        SwitchableMapViewContainer::SwitchableMapViewContainer(wxWindow* parent, Logger* logger, MapDocumentWPtr document, GLContextManager& contextManager) :
-        wxPanel(parent),
+        SwitchableMapViewContainer::SwitchableMapViewContainer(Logger* logger, MapDocumentWPtr document, GLContextManager& contextManager, QWidget* parent) :
+        QWidget(parent),
         m_logger(logger),
-        m_document(document),
+        m_document(std::move(document)),
         m_contextManager(contextManager),
-        m_mapViewBar(new MapViewBar(this, m_document)),
-        m_toolBox(new MapViewToolBox(m_document, m_mapViewBar->toolBook())),
-        m_mapRenderer(new Renderer::MapRenderer(m_document)),
+        m_mapViewBar(new MapViewBar(m_document)),
+        m_toolBox(std::make_unique<MapViewToolBox>(m_document, m_mapViewBar->toolBook())),
+        m_mapRenderer(std::make_unique<Renderer::MapRenderer>(m_document)),
         m_mapView(nullptr) {
+            setObjectName("SwitchableMapViewContainer");
             switchToMapView(static_cast<MapViewLayout>(pref(Preferences::MapViewLayout)));
             bindObservers();
         }
@@ -59,52 +58,60 @@ namespace TrenchBroom {
             unbindObservers();
 
             // we must destroy our children before we destroy our resources because they might still use them in their destructors
-            DestroyChildren();
-
-            delete m_toolBox;
-            m_toolBox = nullptr;
-
-            delete m_mapRenderer;
-            m_mapRenderer = nullptr;
+            m_activationTracker.clear();
+            delete m_mapView;
         }
 
         void SwitchableMapViewContainer::connectTopWidgets(Inspector* inspector) {
             inspector->connectTopWidgets(m_mapViewBar);
         }
 
-        bool SwitchableMapViewContainer::viewportHasFocus() const {
-            return m_mapView != nullptr && m_mapView->isCurrent();
+        void SwitchableMapViewContainer::windowActivationStateChanged(const bool active) {
+            m_activationTracker.windowActivationChanged(active);
+        }
+
+        bool SwitchableMapViewContainer::active() const {
+            return m_activationTracker.active();
         }
 
         void SwitchableMapViewContainer::switchToMapView(const MapViewLayout viewId) {
+            m_activationTracker.clear();
+
             if (m_mapView != nullptr) {
-                m_mapView->Destroy();
+                delete m_mapView;
                 m_mapView = nullptr;
+            }
+
+            if (layout()) {
+                delete layout();
             }
 
             switch (viewId) {
                 case MapViewLayout_1Pane:
-                    m_mapView = new CyclingMapView(this, m_logger, m_document, *m_toolBox, *m_mapRenderer, m_contextManager, CyclingMapView::View_ALL);
+                    m_mapView = new CyclingMapView(m_document, *m_toolBox, *m_mapRenderer, m_contextManager, CyclingMapView::View_ALL, m_logger);
                     break;
                 case MapViewLayout_2Pane:
-                    m_mapView = new TwoPaneMapView(this, m_logger, m_document, *m_toolBox, *m_mapRenderer, m_contextManager);
+                    m_mapView = new TwoPaneMapView(m_document, *m_toolBox, *m_mapRenderer, m_contextManager, m_logger);
                     break;
                 case MapViewLayout_3Pane:
-                    m_mapView = new ThreePaneMapView(this, m_logger, m_document, *m_toolBox, *m_mapRenderer, m_contextManager);
+                    m_mapView = new ThreePaneMapView(m_document, *m_toolBox, *m_mapRenderer, m_contextManager, m_logger);
                     break;
                 case MapViewLayout_4Pane:
-                    m_mapView = new FourPaneMapView(this, m_logger, m_document, *m_toolBox, *m_mapRenderer, m_contextManager);
+                    m_mapView = new FourPaneMapView(m_document, *m_toolBox, *m_mapRenderer, m_contextManager, m_logger);
                     break;
             }
 
-            SetSizer(nullptr); // delete the old sizer first
-            wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-            sizer->Add(m_mapViewBar, 0, wxEXPAND);
-            sizer->Add(m_mapView, 1, wxEXPAND);
-            SetSizer(sizer);
-            Layout();
+            installActivationTracker(m_activationTracker);
 
-            m_mapView->SetFocus();
+            auto* layout = new QVBoxLayout();
+            layout->setContentsMargins(0, 0, 0, 0);
+            layout->setSpacing(0);
+
+            layout->addWidget(m_mapViewBar);
+            layout->addWidget(m_mapView, 1);
+            setLayout(layout);
+
+            m_mapView->setFocus();
         }
 
         bool SwitchableMapViewContainer::anyToolActive() const {
@@ -231,6 +238,10 @@ namespace TrenchBroom {
             return m_toolBox->faceTool();
         }
 
+        MapViewToolBox* SwitchableMapViewContainer::mapViewToolBox() {
+            return m_toolBox.get();
+        }
+
         bool SwitchableMapViewContainer::canMoveCameraToNextTracePoint() const {
             MapDocumentSPtr document = lock(m_document);
             if (!document->isPointFileLoaded())
@@ -290,19 +301,21 @@ namespace TrenchBroom {
         }
 
         void SwitchableMapViewContainer::refreshViews(Tool* tool) {
-            m_mapView->Refresh();
+            // NOTE: it doesn't work to call QWidget::update() here. The actual OpenGL view is a QWindow embedded in
+            // the widget hierarchy with QWidget::createWindowContainer(), and we need to call QWindow::requestUpdate().
+            m_mapView->refreshViews();
+        }
+
+        void SwitchableMapViewContainer::doInstallActivationTracker(MapViewActivationTracker& activationTracker) {
+            m_mapView->installActivationTracker(activationTracker);
         }
 
         bool SwitchableMapViewContainer::doGetIsCurrent() const {
             return m_mapView->isCurrent();
         }
 
-        void SwitchableMapViewContainer::doSetToolBoxDropTarget() {
-            m_mapView->setToolBoxDropTarget();
-        }
-
-        void SwitchableMapViewContainer::doClearDropTarget() {
-            m_mapView->clearDropTarget();
+        MapViewBase* SwitchableMapViewContainer::doGetFirstMapViewBase() {
+            return m_mapView->firstMapViewBase();
         }
 
         bool SwitchableMapViewContainer::doCanSelectTall() {
@@ -311,14 +324,6 @@ namespace TrenchBroom {
 
         void SwitchableMapViewContainer::doSelectTall() {
             m_mapView->selectTall();
-        }
-
-        bool SwitchableMapViewContainer::doCanFlipObjects() const {
-            return m_mapView->canFlipObjects();
-        }
-
-        void SwitchableMapViewContainer::doFlipObjects(const vm::direction direction) {
-            m_mapView->flipObjects(direction);
         }
 
         vm::vec3 SwitchableMapViewContainer::doGetPasteObjectsDelta(const vm::bbox3& bounds, const vm::bbox3& referenceBounds) const {
@@ -343,6 +348,10 @@ namespace TrenchBroom {
 
         bool SwitchableMapViewContainer::doCancelMouseDrag() {
             return m_mapView->cancelMouseDrag();
+        }
+
+        void SwitchableMapViewContainer::doRefreshViews() {
+            m_mapView->refreshViews();
         }
     }
 }

@@ -19,12 +19,13 @@
 
 #include "PortalFile.h"
 
+#include "Exceptions.h"
 #include "IO/Path.h"
+#include "StringUtils.h"
 
 #include <vecmath/forward.h>
 #include <vecmath/polygon.h>
 
-#include <cassert>
 #include <fstream>
 
 namespace TrenchBroom {

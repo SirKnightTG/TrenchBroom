@@ -22,13 +22,12 @@
 
 #include "ByteBuffer.h"
 #include "Color.h"
-#include "StringUtils.h"
+#include "StringSet.h"
+#include "StringType.h"
 #include "Renderer/GL.h"
 
 #include <vecmath/forward.h>
 
-#include <utility>
-#include <cassert>
 #include <vector>
 
 namespace TrenchBroom {

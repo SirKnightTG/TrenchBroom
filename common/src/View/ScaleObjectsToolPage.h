@@ -23,41 +23,48 @@
 #include "TrenchBroom.h"
 #include "View/ViewTypes.h"
 
-#include <wx/panel.h>
+#include <QWidget>
 
-class wxButton;
-class wxChoice;
-class wxSimplebook;
-class wxTextCtrl;
-class wxSimplebook;
-class wxChoice;
+class QComboBox;
+class QStackedLayout;
+class QLineEdit;
+class QComboBox;
+class QAbstractButton;
 
 namespace TrenchBroom {
     namespace View {
+        class Selection;
         class ScaleObjectsTool;
 
-        class ScaleObjectsToolPage : public wxPanel {
+        class ScaleObjectsToolPage : public QWidget {
+            Q_OBJECT
         private:
             MapDocumentWPtr m_document;
 
-            wxSimplebook* m_book;
+            QStackedLayout* m_book;
 
-            wxTextCtrl* m_sizeTextBox;
-            wxTextCtrl* m_factorsTextBox;
+            QLineEdit* m_sizeTextBox;
+            QLineEdit* m_factorsTextBox;
 
-            wxChoice* m_scaleFactorsOrSize;
-            wxButton* m_button;
+            QComboBox* m_scaleFactorsOrSize;
+            QAbstractButton* m_button;
         public:
-            ScaleObjectsToolPage(wxWindow* parent, MapDocumentWPtr document);
+            explicit ScaleObjectsToolPage(MapDocumentWPtr document, QWidget* parent = nullptr);
+            ~ScaleObjectsToolPage() override;
             void activate();
         private:
-            void createGui();
+            void bindObservers();
+            void unbindObservers();
 
-            void OnUpdateButton(wxUpdateUIEvent& event);
-            void OnApply(wxCommandEvent& event);
+            void createGui();
+            void updateGui();
 
             bool canScale() const;
             vm::vec3 getScaleFactors() const;
+
+            void selectionDidChange(const Selection& selection);
+
+            void applyScale();
         };
     }
 }

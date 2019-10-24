@@ -21,9 +21,12 @@
 
 #include <algorithm>
 #include <cstdarg>
-#include <cstdio>
 
 namespace StringUtils {
+    const String& choose(const bool predicate, const String& positive, const String& negative) {
+        return predicate ? positive : negative;
+    }
+
     String formatString(const char* format, ...) {
         va_list arguments;
         va_start(arguments, format);

@@ -20,10 +20,8 @@
 #ifndef TrenchBroom_FindMatchingBrushFaceVisitor
 #define TrenchBroom_FindMatchingBrushFaceVisitor
 
-#include "CollectionUtils.h"
 #include "Model/Brush.h"
 #include "Model/BrushFace.h"
-#include "Model/BrushFacePredicates.h"
 #include "Model/ModelTypes.h"
 #include "Model/NodeVisitor.h"
 

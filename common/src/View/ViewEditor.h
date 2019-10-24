@@ -22,17 +22,19 @@
 
 #include "View/ViewTypes.h"
 
-#include <wx/panel.h>
+#include <QWidget>
 
 #include <list>
 #include <vector>
 
-class wxCheckBox;
-class wxWindow;
+class QCheckBox;
+class QWidget;
+class QButtonGroup;
 
 namespace TrenchBroom {
     namespace Assets {
         class EntityDefinitionManager;
+        class EntityDefinition;
     }
 
     namespace Model {
@@ -42,11 +44,11 @@ namespace TrenchBroom {
 
     namespace View {
         class PopupButton;
-        class RadioGroup;
 
-        class EntityDefinitionCheckBoxList : public wxPanel {
+        class EntityDefinitionCheckBoxList : public QWidget {
+            Q_OBJECT
         private:
-            using CheckBoxList = std::vector<wxCheckBox*>;
+            using CheckBoxList = std::vector<QCheckBox*>;
 
             Assets::EntityDefinitionManager& m_entityDefinitionManager;
             Model::EditorContext& m_editorContext;
@@ -54,62 +56,49 @@ namespace TrenchBroom {
             CheckBoxList m_groupCheckBoxes;
             CheckBoxList m_defCheckBoxes;
         public:
-            EntityDefinitionCheckBoxList(wxWindow* parent, Assets::EntityDefinitionManager& entityDefinitionManager, Model::EditorContext& editorContext);
+            EntityDefinitionCheckBoxList(Assets::EntityDefinitionManager& entityDefinitionManager, Model::EditorContext& editorContext, QWidget* parent = nullptr);
 
             void refresh();
-
-            void OnGroupCheckBoxChanged(wxCommandEvent& event);
-            void OnDefCheckBoxChanged(wxCommandEvent& event);
-            void OnShowAllClicked(wxCommandEvent& event);
-            void OnHideAllClicked(wxCommandEvent& event);
+        private slots:
+            void groupCheckBoxChanged(size_t groupIndex, bool checked);
+            void defCheckBoxChanged(const Assets::EntityDefinition* definition, bool checked);
+            void showAllClicked();
+            void hideAllClicked();
         private:
             void hideAll(bool hidden);
             void createGui();
         };
 
-        class ViewEditor : public wxPanel {
+        class ViewEditor : public QWidget {
+            Q_OBJECT
         private:
-            using CheckBoxList = std::vector<wxCheckBox*>;
+            using CheckBoxList = std::vector<QCheckBox*>;
 
             MapDocumentWPtr m_document;
 
-            wxCheckBox* m_showEntityClassnamesCheckBox;
+            QCheckBox* m_showEntityClassnamesCheckBox;
 
-            wxCheckBox* m_showGroupBoundsCheckBox;
-            wxCheckBox* m_showBrushEntityBoundsCheckBox;
-            wxCheckBox* m_showPointEntityBoundsCheckBox;
+            QCheckBox* m_showGroupBoundsCheckBox;
+            QCheckBox* m_showBrushEntityBoundsCheckBox;
+            QCheckBox* m_showPointEntityBoundsCheckBox;
 
-            wxCheckBox* m_showPointEntitiesCheckBox;
-            wxCheckBox* m_showPointEntityModelsCheckBox;
+            QCheckBox* m_showPointEntitiesCheckBox;
+            QCheckBox* m_showPointEntityModelsCheckBox;
 
             EntityDefinitionCheckBoxList* m_entityDefinitionCheckBoxList;
 
-            wxCheckBox* m_showBrushesCheckBox;
+            QCheckBox* m_showBrushesCheckBox;
             CheckBoxList m_tagCheckBoxes;
 
-            RadioGroup* m_renderModeRadioGroup;
-            wxCheckBox* m_shadeFacesCheckBox;
-            wxCheckBox* m_showFogCheckBox;
-            wxCheckBox* m_showEdgesCheckBox;
+            QButtonGroup* m_renderModeRadioGroup;
+            QCheckBox* m_shadeFacesCheckBox;
+            QCheckBox* m_showFogCheckBox;
+            QCheckBox* m_showEdgesCheckBox;
 
-            RadioGroup* m_entityLinkRadioGroup;
+            QButtonGroup* m_entityLinkRadioGroup;
         public:
-            ViewEditor(wxWindow* parent, MapDocumentWPtr document);
+            explicit ViewEditor(MapDocumentWPtr document, QWidget* parent = nullptr);
             ~ViewEditor() override;
-
-            void OnShowEntityClassnamesChanged(wxCommandEvent& event);
-            void OnShowGroupBoundsChanged(wxCommandEvent& event);
-            void OnShowBrushEntityBoundsChanged(wxCommandEvent& event);
-            void OnShowPointEntityBoundsChanged(wxCommandEvent& event);
-            void OnShowPointEntitiesChanged(wxCommandEvent& event);
-            void OnShowPointEntityModelsChanged(wxCommandEvent& event);
-            void OnShowBrushesChanged(wxCommandEvent& event);
-            void OnShowTagChanged(wxCommandEvent& event);
-            void OnFaceRenderModeChanged(wxCommandEvent& event);
-            void OnShadeFacesChanged(wxCommandEvent& event);
-            void OnShowFogChanged(wxCommandEvent& event);
-            void OnShowEdgesChanged(wxCommandEvent& event);
-            void OnEntityLinkModeChanged(wxCommandEvent& event);
         private:
             void bindObservers();
             void unbindObservers();
@@ -121,28 +110,43 @@ namespace TrenchBroom {
 
             void createGui();
 
-            wxWindow* createEntityDefinitionsPanel(wxWindow* parent);
-            wxWindow* createEntitiesPanel(wxWindow* parent);
-            wxWindow* createBrushesPanel(wxWindow* parent);
-            void createTagFilter(wxWindow* parent);
-            void createEmptyTagFilter(wxWindow* parent);
-            void createTagFilter(wxWindow* parent, const std::list<Model::SmartTag>& tags);
+            QWidget* createEntityDefinitionsPanel(QWidget* parent);
+            QWidget* createEntitiesPanel(QWidget* parent);
+            QWidget* createBrushesPanel(QWidget* parent);
+            void createTagFilter(QWidget* parent);
+            void createEmptyTagFilter(QWidget* parent);
+            void createTagFilter(QWidget* parent, const std::list<Model::SmartTag>& tags);
 
-            wxWindow* createRendererPanel(wxWindow* parent);
+            QWidget* createRendererPanel(QWidget* parent);
 
             void refreshGui();
             void refreshEntityDefinitionsPanel();
             void refreshEntitiesPanel();
             void refreshBrushesPanel();
             void refreshRendererPanel();
+
+            void showEntityClassnamesChanged(bool checked);
+            void showGroupBoundsChanged(bool checked);
+            void showBrushEntityBoundsChanged(bool checked);
+            void showPointEntityBoundsChanged(bool checked);
+            void showPointEntitiesChanged(bool checked);
+            void showPointEntityModelsChanged(bool checked);
+            void showBrushesChanged(bool checked);
+            void showTagChanged(bool checked);
+            void faceRenderModeChanged(int id);
+            void shadeFacesChanged(bool checked);
+            void showFogChanged(bool checked);
+            void showEdgesChanged(bool checked);
+            void entityLinkModeChanged(int id);
         };
 
-        class ViewPopupEditor : public wxPanel {
+        class ViewPopupEditor : public QWidget {
+            Q_OBJECT
         private:
             PopupButton* m_button;
             ViewEditor* m_editor;
         public:
-            ViewPopupEditor(wxWindow* parent, MapDocumentWPtr document);
+            explicit ViewPopupEditor(MapDocumentWPtr document, QWidget* parent = nullptr);
         };
     }
 }

@@ -20,6 +20,7 @@
 #ifndef ObjSerializer_h
 #define ObjSerializer_h
 
+#include "CollectionUtils.h"
 #include "IO/NodeSerializer.h"
 #include "Model/ModelTypes.h"
 #include "IO/Path.h"
@@ -28,7 +29,6 @@
 #include <vecmath/forward.h>
 
 #include <cstdio>
-#include <list>
 #include <map>
 #include <vector>
 
